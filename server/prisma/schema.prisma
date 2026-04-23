@@ -1,0 +1,69 @@
+// server/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CONSUMER
+  DEVELOPER
+  ADMIN
+}
+
+enum ProductStatus {
+  PENDING
+  LIVE
+  REJECTED
+}
+
+model User {
+  id            String        @id @default(uuid())
+  email         String        @unique
+  role          Role          @default(CONSUMER)
+  walletBalance Float         @default(0.0)
+  
+  // Relations
+  products      Product[]     @relation("DeveloperProducts")
+  purchases     Transaction[] @relation("BuyerTransactions")
+  createdAt     DateTime      @default(now())
+}
+
+model Product {
+  id            String        @id @default(uuid())
+  title         String
+  description   String
+  price         Float         // Stored in TND
+  category      String
+  status        ProductStatus @default(PENDING)
+  
+  // Media & Files
+  thumbnailUrl  String
+  mediaUrls     String[]      // Array of images (Task 0 requirement)
+  demoVideoUrl  String?       // Optional demo video (Task 0 requirement)
+  fileUrl       String        // Secure Supabase Storage path
+  
+  // Relations
+  developerId   String
+  developer     User          @relation("DeveloperProducts", fields: [developerId], references: [id])
+  transactions  Transaction[]
+  createdAt     DateTime      @default(now())
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  amountPaid    Float
+  platformCut   Float    // 10%
+  developerCut  Float    // 90%
+  stripeId      String?  @unique // Reference to Stripe PaymentIntent
+  
+  // Relations
+  buyerId       String
+  buyer         User     @relation("BuyerTransactions", fields: [buyerId], references: [id])
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id])
+  createdAt     DateTime @default(now())
+}

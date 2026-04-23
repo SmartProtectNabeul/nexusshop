@@ -1,0 +1,47 @@
+{
+  "brand": "NexusShop",
+  "nav": {
+    "home": "Accueil",
+    "apps": "Applications",
+    "websites": "Sites Web",
+    "services": "Services",
+    "extensions": "Extensions",
+    "search": "Rechercher des apps, services, extensions…"
+  },
+  "hero": {
+    "title": "Découvrez l'Excellence Numérique",
+    "subtitle": "Applications, sites web, services et extensions de navigateur premium — sélectionnés et vérifiés par des experts.",
+    "cta": "Explorer"
+  },
+  "categories": {
+    "all": "Tout",
+    "apps": "Applications",
+    "websites": "Sites Web",
+    "services": "Services",
+    "extensions": "Extensions"
+  },
+  "product": {
+    "get": "Obtenir",
+    "buy": "Acheter",
+    "free": "Gratuit",
+    "rating": "Évaluation",
+    "downloads": "Téléchargements",
+    "size": "Taille",
+    "developer": "Développeur",
+    "description": "Description",
+    "screenshots": "Captures d'écran",
+    "systemInfo": "Informations Système",
+    "category": "Catégorie",
+    "version": "Version",
+    "lastUpdated": "Dernière mise à jour",
+    "requirements": "Configuration requise",
+    "backToStore": "Retour à la boutique"
+  },
+
+  "footer": {
+    "rights": "Tous droits réservés.",
+    "terms": "Conditions",
+    "privacy": "Confidentialité",
+    "developers": "Pour les développeurs"
+  }
+}

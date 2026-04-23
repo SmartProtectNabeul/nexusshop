@@ -1,0 +1,47 @@
+{
+  "brand": "NexusShop",
+  "nav": {
+    "home": "الرئيسية",
+    "apps": "التطبيقات",
+    "websites": "المواقع",
+    "services": "الخدمات",
+    "extensions": "الإضافات",
+    "search": "ابحث عن التطبيقات، الخدمات، الإضافات…"
+  },
+  "hero": {
+    "title": "اكتشف التميّز الرقمي",
+    "subtitle": "تطبيقات ومواقع وخدمات وإضافات متصفح فاخرة — مختارة وموثقة من قبل خبراء.",
+    "cta": "استكشف الآن"
+  },
+  "categories": {
+    "all": "الكل",
+    "apps": "التطبيقات",
+    "websites": "المواقع",
+    "services": "الخدمات",
+    "extensions": "الإضافات"
+  },
+  "product": {
+    "get": "احصل عليه",
+    "buy": "شراء",
+    "free": "مجاني",
+    "rating": "التقييم",
+    "downloads": "التحميلات",
+    "size": "الحجم",
+    "developer": "المطوّر",
+    "description": "الوصف",
+    "screenshots": "لقطات الشاشة",
+    "systemInfo": "معلومات النظام",
+    "category": "الفئة",
+    "version": "الإصدار",
+    "lastUpdated": "آخر تحديث",
+    "requirements": "المتطلبات",
+    "backToStore": "العودة إلى المتجر"
+  },
+
+  "footer": {
+    "rights": "جميع الحقوق محفوظة.",
+    "terms": "الشروط",
+    "privacy": "الخصوصية",
+    "developers": "للمطوّرين"
+  }
+}

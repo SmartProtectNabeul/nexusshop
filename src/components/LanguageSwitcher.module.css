@@ -1,0 +1,84 @@
+.wrapper {
+  position: relative;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-glass-border);
+  color: var(--text-secondary);
+  transition: all var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+}
+
+.trigger:hover {
+  color: var(--text-primary);
+  background: var(--surface-elevated);
+  border-color: hsla(186, 100%, 65%, 0.2);
+}
+
+.currentFlag {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  inset-inline-end: 0;
+  min-width: 160px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-1);
+  z-index: 100;
+  animation: dropIn 0.2s var(--ease-out);
+}
+
+@keyframes dropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  transition: all var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+.option.active {
+  color: var(--accent-cyan);
+  background: hsla(186, 100%, 65%, 0.08);
+}
+
+.flag {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.label {
+  font-weight: 500;
+}

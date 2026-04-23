@@ -1,0 +1,47 @@
+{
+  "brand": "NexusShop",
+  "nav": {
+    "home": "Home",
+    "apps": "Apps",
+    "websites": "Websites",
+    "services": "Services",
+    "extensions": "Extensions",
+    "search": "Search apps, services, extensions…"
+  },
+  "hero": {
+    "title": "Discover Digital Excellence",
+    "subtitle": "Premium apps, websites, services & browser extensions — curated and verified by experts.",
+    "cta": "Explore Now"
+  },
+  "categories": {
+    "all": "All",
+    "apps": "Apps",
+    "websites": "Websites",
+    "services": "Services",
+    "extensions": "Extensions"
+  },
+  "product": {
+    "get": "Get",
+    "buy": "Buy",
+    "free": "Free",
+    "rating": "Rating",
+    "downloads": "Downloads",
+    "size": "Size",
+    "developer": "Developer",
+    "description": "Description",
+    "screenshots": "Screenshots",
+    "systemInfo": "System Info",
+    "category": "Category",
+    "version": "Version",
+    "lastUpdated": "Last Updated",
+    "requirements": "Requirements",
+    "backToStore": "Back to Store"
+  },
+
+  "footer": {
+    "rights": "All rights reserved.",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "developers": "For Developers"
+  }
+}

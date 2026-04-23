@@ -1,0 +1,254 @@
+.cardWrapper {
+  position: relative;
+  width: 100%;
+  z-index: 1;
+}
+
+.cardWrapper:hover {
+  z-index: 20;
+}
+
+/* Invisible spacer dictates the cell size */
+.spacer {
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* The actual visible card */
+.card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.cardHovered {
+  inset: -20px -10px; /* Expand 20px top/bottom, 10px left/right */
+  background: var(--surface-elevated);
+  box-shadow: 
+     0 12px 40px hsla(0, 0%, 0%, 0.6),
+     0 0 30px hsla(186, 100%, 65%, 0.1);
+  border-color: hsla(186, 100%, 65%, 0.2);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+/* Thumbnail */
+.thumbnailWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--surface-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  overflow: hidden;
+  transition: padding var(--duration-normal) var(--ease-out);
+}
+
+.cardHovered .thumbnailWrap {
+  padding: var(--space-6);
+}
+
+.thumbnail {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  will-change: transform;
+}
+
+.thumbnailGlow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, hsla(186, 100%, 65%, 0) 40%, hsla(186, 100%, 65%, 0.06) 100%);
+  opacity: 0;
+  transition: opacity var(--duration-slow) var(--ease-out);
+  pointer-events: none;
+}
+
+.glowActive {
+  opacity: 1;
+}
+
+/* Info Section */
+.info {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.title {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-height: 20px;
+  opacity: 1;
+  transition: all var(--duration-fast) var(--ease-out);
+  overflow: hidden;
+}
+
+.hideMeta {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Extra Hover Info */
+.extraInfo {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: all var(--duration-normal) var(--ease-out);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.showExtra {
+  max-height: 150px;
+  opacity: 1;
+  margin-top: var(--space-1);
+}
+
+.developerRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+[dir="rtl"] .developerRow {
+  direction: rtl;
+}
+
+.shortDesc {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.categoryRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.categoryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: hsla(186, 100%, 65%, 0.08);
+  border: 1px solid hsla(186, 100%, 65%, 0.12);
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+/* Bottom Row */
+.bottomRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  gap: var(--space-2);
+}
+
+.price {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.freeBadge {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--free-badge);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* CTA Button */
+.btnWrap {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.showBtn {
+  max-width: 100px;
+  opacity: 1;
+  overflow: visible;
+}
+
+.getBtn {
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-sm);
+  background: var(--accent-gradient);
+  color: hsl(225, 25%, 8%);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-align: center;
+  border: none;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+}
+
+.getBtn:hover {
+  transform: scale(1.04);
+}
+
+.getBtn:active {
+  transform: scale(0.96);
+}
+
+/* Border glow on hover */
+.borderGlow {
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--radius-lg);
+  background: var(--accent-gradient);
+  z-index: -1;
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out);
+  pointer-events: none;
+}
+
+.borderGlowActive {
+  opacity: 0.3;
+}
