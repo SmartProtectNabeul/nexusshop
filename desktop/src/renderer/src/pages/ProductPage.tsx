@@ -66,6 +66,7 @@ export default function ProductPage() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
   const [statusText, setStatusText] = useState<string>('');
+  const [isBuying, setIsBuying] = useState(false);
 
   const user = auth?.user;
 
@@ -182,9 +183,40 @@ export default function ProductPage() {
     }
   };
 
-  const handleBuy = () => {
-    window.open(`http://localhost:5173/product/${id}`, '_blank');
-    toast('Redirected to web for payment', { icon: '💳' });
+  const handleBuy = async () => {
+    if (!auth?.user) {
+      toast.error('Please login first');
+      navigate('/login');
+      return;
+    }
+    if (!id) return;
+
+    setIsBuying(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/payments/purchase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ productId: id })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to buy product');
+        return;
+      }
+      if (data.user) {
+        auth.login(data.user, localStorage.getItem('token') || '');
+      }
+      toast.success(data.message || 'Product purchased');
+      await fetchPurchaseStatus();
+      await fetchProduct(true);
+    } catch (_error) {
+      toast.error('Failed to buy product');
+    } finally {
+      setIsBuying(false);
+    }
   };
 
   return (
@@ -230,9 +262,9 @@ export default function ProductPage() {
                 <button 
                   className={styles.getButton} 
                   onClick={canDownload ? handleInstall : handleBuy}
-                  disabled={isCheckingPurchase}
+                  disabled={isCheckingPurchase || isBuying}
                 >
-                  {canDownload ? 'INSTALL' : 'BUY'}
+                  {isBuying ? 'BUYING...' : canDownload ? 'INSTALL' : 'BUY WITH CREDITS'}
                 </button>
               )}
             </div>

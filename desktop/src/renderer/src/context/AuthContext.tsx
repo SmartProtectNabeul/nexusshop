@@ -22,10 +22,19 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const normalizeUser = (userData: User | null): User | null => {
+  if (!userData) return null;
+  return {
+    ...userData,
+    credits: Number(userData.credits ?? 0),
+    walletBalance: Number(userData.walletBalance ?? 0),
+  };
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => {
     const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
+    return storedUser ? normalizeUser(JSON.parse(storedUser)) : null;
   });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
   const [theme, setTheme] = useState<string>(() => {
@@ -43,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       });
       if (res.ok) {
-        const latestData = await res.json();
+        const latestData = normalizeUser(await res.json());
         setUser(latestData);
         localStorage.setItem('user', JSON.stringify(latestData));
       }
@@ -70,12 +79,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const login = (userData: User, authToken: string) => {
-    localStorage.setItem('user', JSON.stringify(userData));
+    const nextUser = normalizeUser(userData);
+    localStorage.setItem('user', JSON.stringify(nextUser));
     if (authToken) {
       localStorage.setItem('token', authToken);
       setToken(authToken);
     }
-    setUser(userData);
+    setUser(nextUser);
   };
 
   const logout = () => {

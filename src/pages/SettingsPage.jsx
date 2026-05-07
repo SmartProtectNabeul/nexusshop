@@ -19,6 +19,8 @@ export default function SettingsPage() {
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [newTokenName, setNewTokenName] = useState('');
   const [isCreatingToken, setIsCreatingToken] = useState(false);
+  const credits = Number(user?.credits ?? 0);
+  const walletBalance = Number(user?.walletBalance ?? 0);
 
   const fetchTokens = async () => {
     setIsLoadingTokens(true);
@@ -97,7 +99,6 @@ export default function SettingsPage() {
   };
 
   if (!user) {
-    navigate('/login');
     return null;
   }
 
@@ -201,7 +202,7 @@ export default function SettingsPage() {
             </div>
             <div className={styles.field}>
               <label>Credits</label>
-              <div className={styles.value}>{user.credits} credits</div>
+              <div className={styles.value}>{credits} credits</div>
             </div>
           </div>
 
@@ -303,7 +304,7 @@ export default function SettingsPage() {
           </div>
 
           <p className={styles.hint}>
-            Keep your account secure: avoid using old passwords or passwords used on other websites.
+            Set a password here if you created this account with Google and want to use email and password login.
           </p>
         </section>
 
@@ -335,7 +336,7 @@ export default function SettingsPage() {
             </div>
             <div className={styles.field}>
               <label>Wallet Balance</label>
-              <div className={styles.value}>{user.walletBalance} TND</div>
+              <div className={styles.value}>{walletBalance} TND</div>
             </div>
           </div>
 

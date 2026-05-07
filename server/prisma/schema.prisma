@@ -86,7 +86,6 @@ model Transaction {
   amountPaid    Float
   platformCut   Float    // 10%
   developerCut  Float    // 90%
-  stripeId      String?  @unique // Reference to Stripe PaymentIntent
   
   // Relations
   buyerId       String

@@ -1,9 +1,28 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
+const { Prisma } = require('@prisma/client');
 const prisma = require('../lib/prisma');
 const cacheStore = require('../lib/cacheStore');
 
-// Task 2: Create Checkout Session
-exports.createCheckoutSession = async (req, res) => {
+const selectPublicUser = {
+  id: true,
+  email: true,
+  role: true,
+  credits: true,
+  walletBalance: true,
+};
+
+const normalizeUser = (user) => ({
+  ...user,
+  credits: Number(user.credits ?? 0),
+  walletBalance: Number(user.walletBalance ?? 0),
+});
+
+const clearPurchaseCaches = (buyerId, productId) => {
+  cacheStore.delByPrefix('products:');
+  cacheStore.del(`product:${productId}`);
+  cacheStore.del(`purchase-status:${buyerId}:${productId}`);
+};
+
+exports.purchaseWithCredits = async (req, res) => {
   const { productId } = req.body;
   const buyerId = req.userId;
 
@@ -16,159 +35,146 @@ exports.createCheckoutSession = async (req, res) => {
   }
 
   try {
-    // Fetch product details
     const product = await prisma.product.findUnique({
-      where: { id: productId }
+      where: { id: productId },
+      select: {
+        id: true,
+        title: true,
+        price: true,
+        status: true,
+        developerId: true,
+      },
     });
 
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
 
-    if (product.developerId === buyerId) {
-      return res.status(400).json({ error: 'You cannot purchase your own product' });
-    }
-
     if (product.status !== 'LIVE') {
       return res.status(400).json({ error: 'Product is not available for purchase' });
     }
 
-    const existingPurchase = await prisma.transaction.findFirst({
-      where: {
-        buyerId,
-        productId,
-      },
-    });
-
-    if (existingPurchase) {
-      return res.status(400).json({ error: 'You already purchased this product' });
+    if (product.developerId === buyerId) {
+      return res.status(400).json({ error: 'You already own this product' });
     }
 
-    // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'tnd', // Tunisian Dinar (assuming Stripe supports it or using equivalent)
-            product_data: {
-              name: product.title,
-              description: product.description,
-            },
-            unit_amount: Math.round(product.price * 100), // Stripe expects cents/smallest currency unit
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL}/product/${product.id}?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/product/${product.id}`,
-      metadata: {
-        productId: product.id,
-        buyerId,
-        developerId: product.developerId,
-      },
-      client_reference_id: `${buyerId}:${product.id}`,
-    });
+    const price = Number(product.price || 0);
 
-    res.json({ url: session.url });
-  } catch (error) {
-    console.error('Stripe checkout error:', error);
-    res.status(500).json({ error: 'Failed to create checkout session' });
-  }
-};
-
-// Task 2: Webhook for 90/10 Split
-exports.stripeWebhook = async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  let event;
-
-  try {
-    if (!endpointSecret) {
-      return res.status(500).send('Stripe webhook secret is not configured');
-    }
-
-    // Verify webhook signature to prevent spoofing
-    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-  } catch (err) {
-    console.error(`Webhook Error: ${err.message}`);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  // Handle successful checkout
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    
-    const productId = session.metadata.productId;
-    const buyerId = session.metadata.buyerId;
-    const developerId = session.metadata.developerId;
-    
-    // Convert back from cents
-    const amountPaid = session.amount_total / 100;
-
-    // Calculate 90/10 Split
-    const platformCut = amountPaid * 0.10;
-    const developerCut = amountPaid * 0.90;
-
-    try {
-      const existingTransaction = await prisma.transaction.findUnique({
-        where: { stripeId: session.payment_intent },
+    if (price <= 0) {
+      return res.status(200).json({
+        message: 'This product is free and ready to download.',
+        canDownload: true,
+        isFree: true,
       });
+    }
 
-      if (existingTransaction) {
-        return res.json({ received: true, duplicate: true });
-      }
-
-      const existingByPurchase = await prisma.transaction.findFirst({
-        where: { buyerId, productId },
+    const result = await prisma.$transaction(async (tx) => {
+      const existingPurchase = await tx.transaction.findUnique({
+        where: {
+          buyerId_productId: {
+            buyerId,
+            productId: product.id,
+          },
+        },
         select: { id: true },
       });
-      if (existingByPurchase) {
-        return res.json({ received: true, duplicate: true });
+
+      if (existingPurchase) {
+        const user = await tx.user.findUnique({
+          where: { id: buyerId },
+          select: selectPublicUser,
+        });
+        return { alreadyPurchased: true, user };
       }
 
-      // Execute as a Prisma Transaction to ensure atomicity
-      await prisma.$transaction(async (tx) => {
-        
-        // 1. Log the transaction
-        await tx.transaction.create({
-          data: {
-            amountPaid,
-            platformCut,
-            developerCut,
-            stripeId: session.payment_intent,
-            buyerId,
-            productId,
-          }
-        });
-
-        // 2. Credit 90% to the Developer's virtual wallet
-        await tx.user.update({
-          where: { id: developerId },
-          data: {
-            walletBalance: {
-              increment: developerCut
-            }
-          }
-        });
-        
-        // Note: Platform funds (10%) remain in the Stripe account automatically.
+      const buyerUpdate = await tx.user.updateMany({
+        where: {
+          id: buyerId,
+          credits: { gte: price },
+        },
+        data: {
+          credits: { decrement: price },
+        },
       });
 
-      console.log(`Payment processed for product ${productId}: Developer credited ${developerCut} TND`);
-      cacheStore.delByPrefix('products:');
-      cacheStore.del(`product:${productId}`);
-      cacheStore.del(`purchase-status:${buyerId}:${productId}`);
-    } catch (error) {
-      console.error('Database transaction error during webhook processing:', error);
-      // Even if DB fails, Stripe charge succeeded. We must log this for manual intervention.
-      return res.status(500).send('Database transaction failed');
-    }
-  }
+      if (buyerUpdate.count !== 1) {
+        const user = await tx.user.findUnique({
+          where: { id: buyerId },
+          select: selectPublicUser,
+        });
+        const error = new Error(`Not enough credits. You need ${price} credits to buy this product.`);
+        error.code = 'INSUFFICIENT_CREDITS';
+        error.user = user;
+        throw error;
+      }
 
-  res.json({ received: true });
+      const platformCut = price * 0.10;
+      const developerCut = price * 0.90;
+
+      const transaction = await tx.transaction.create({
+        data: {
+          amountPaid: price,
+          platformCut,
+          developerCut,
+          buyerId,
+          productId: product.id,
+        },
+      });
+
+      await tx.user.update({
+        where: { id: product.developerId },
+        data: {
+          walletBalance: { increment: developerCut },
+        },
+      });
+
+      const user = await tx.user.findUnique({
+        where: { id: buyerId },
+        select: selectPublicUser,
+      });
+
+      return { transaction, user };
+    });
+
+    clearPurchaseCaches(buyerId, product.id);
+
+    if (result.alreadyPurchased) {
+      return res.status(200).json({
+        message: 'You already purchased this product.',
+        purchased: true,
+        canDownload: true,
+        user: normalizeUser(result.user),
+      });
+    }
+
+    return res.status(201).json({
+      message: 'Product purchased with credits.',
+      purchased: true,
+      canDownload: true,
+      transaction: result.transaction,
+      user: normalizeUser(result.user),
+    });
+  } catch (error) {
+    if (error.code === 'INSUFFICIENT_CREDITS') {
+      return res.status(400).json({
+        error: error.message,
+        code: error.code,
+        user: normalizeUser(error.user),
+      });
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      clearPurchaseCaches(buyerId, productId);
+      return res.status(200).json({
+        message: 'You already purchased this product.',
+        purchased: true,
+        canDownload: true,
+      });
+    }
+
+    console.error('Credit purchase error:', error);
+    return res.status(500).json({ error: 'Failed to purchase product with credits' });
+  }
 };
 
 exports.getPurchaseStatus = async (req, res) => {
@@ -198,8 +204,13 @@ exports.getPurchaseStatus = async (req, res) => {
         const isFree = Number(product.price || 0) === 0;
         let purchased = false;
         if (!isOwner && !isFree) {
-          const transaction = await prisma.transaction.findFirst({
-            where: { buyerId, productId: product.id },
+          const transaction = await prisma.transaction.findUnique({
+            where: {
+              buyerId_productId: {
+                buyerId,
+                productId: product.id,
+              },
+            },
             select: { id: true },
           });
           purchased = Boolean(transaction);

@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma');
 const { createClient } = require('@supabase/supabase-js');
 const cacheStore = require('../lib/cacheStore');
+const { readFeaturedIds, writeFeaturedIds } = require('../lib/featuredProducts');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://placeholder.supabase.co',
@@ -113,6 +114,92 @@ exports.getProducts = async (req, res) => {
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).json({ error: 'Failed to fetch products' });
+  }
+};
+
+exports.getFeaturedProducts = async (req, res) => {
+  const forceRefresh = cacheStore.fromQuery(req);
+  try {
+    const featuredIds = readFeaturedIds();
+    if (featuredIds.length === 0) {
+      return res.json([]);
+    }
+
+    const products = await cacheStore.getOrSet(
+      `products:featured:${featuredIds.join(',')}`,
+      45 * 1000,
+      forceRefresh,
+      async () => {
+        const rows = await prisma.product.findMany({
+          where: {
+            id: { in: featuredIds },
+            status: 'LIVE',
+          },
+          include: {
+            developer: { select: { email: true } },
+            _count: { select: { transactions: true } },
+          },
+        });
+        const rowMap = new Map(rows.map((product) => [product.id, product]));
+        return Promise.all(
+          featuredIds
+            .map((id) => rowMap.get(id))
+            .filter(Boolean)
+            .map((product) => normalizeProductAssets(product))
+        );
+      }
+    );
+
+    return res.json(products);
+  } catch (error) {
+    console.error('Error fetching featured products:', error);
+    return res.status(500).json({ error: 'Failed to fetch featured products' });
+  }
+};
+
+exports.adminListLiveProducts = async (_req, res) => {
+  try {
+    const featuredIds = readFeaturedIds();
+    const products = await prisma.product.findMany({
+      where: { status: 'LIVE' },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        developer: { select: { email: true } },
+        _count: { select: { transactions: true } },
+      },
+    });
+    const normalized = await Promise.all(products.map((product) => normalizeProductAssets(product)));
+    return res.json(normalized.map((product) => ({
+      ...product,
+      isFeatured: featuredIds.includes(product.id),
+    })));
+  } catch (error) {
+    console.error('Admin live products error:', error);
+    return res.status(500).json({ error: 'Failed to list live products' });
+  }
+};
+
+exports.adminSetFeaturedProducts = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Boolean).slice(0, 6) : [];
+    if (ids.length > 0) {
+      const liveCount = await prisma.product.count({
+        where: {
+          id: { in: ids },
+          status: 'LIVE',
+        },
+      });
+      if (liveCount !== ids.length) {
+        return res.status(400).json({ error: 'Featured apps must be live products' });
+      }
+    }
+
+    writeFeaturedIds(ids);
+    cacheStore.delByPrefix('products:featured:');
+    return res.json({ ids });
+  } catch (error) {
+    console.error('Admin featured products error:', error);
+    return res.status(500).json({ error: 'Failed to update featured products' });
   }
 };
 

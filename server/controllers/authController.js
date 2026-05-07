@@ -10,6 +10,16 @@ const signToken = (user) => {
   return jwt.sign({ userId: user.id, role: user.role }, jwtSecret, { expiresIn: '7d' });
 };
 
+const publicUser = (user) => {
+  const { password: _, ...safeUser } = user;
+  return {
+    ...safeUser,
+    credits: Number(safeUser.credits ?? 0),
+    walletBalance: Number(safeUser.walletBalance ?? 0),
+    hasPassword: Boolean(user.password),
+  };
+};
+
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -24,9 +34,11 @@ const login = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // For users created before bcrypt or google users with no password
+    // Google-created accounts can add a password later from authenticated Settings.
     if (!user.password) {
-      return res.status(401).json({ error: 'Please login with Google' });
+      return res.status(401).json({
+        error: 'This account does not have a password yet. Sign in with Google once, then set a password in Settings.'
+      });
     }
 
     // Check if the password is plain text (legacy) or hashed
@@ -43,9 +55,7 @@ const login = async (req, res) => {
     
     const token = signToken(user);
     
-    // Hide password before sending
-    const { password: _, ...userWithoutPassword } = user;
-    res.status(200).json({ user: userWithoutPassword, token });
+    res.status(200).json({ user: publicUser(user), token });
   } catch (_error) {
     res.status(500).json({ error: 'Login failed' });
   }
@@ -53,7 +63,7 @@ const login = async (req, res) => {
 
 const register = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -69,19 +79,20 @@ const register = async (req, res) => {
     }
     
     const hashedPassword = await bcrypt.hash(password, 10);
+    const accountRole = role === 'DEVELOPER' ? 'DEVELOPER' : 'CONSUMER';
 
     user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
+        role: accountRole,
         credits: 0
       }
     });
     
     const token = signToken(user);
     
-    const { password: _, ...userWithoutPassword } = user;
-    res.status(201).json({ user: userWithoutPassword, token });
+    res.status(201).json({ user: publicUser(user), token, isNewUser: true });
   } catch (_error) {
     res.status(500).json({ error: 'Registration failed' });
   }
@@ -113,6 +124,7 @@ const googleLogin = async (req, res) => {
     const email = payload.email;
     
     let user = await prisma.user.findUnique({ where: { email } });
+    let isNewUser = false;
     if (!user) {
       user = await prisma.user.create({
         data: {
@@ -120,12 +132,12 @@ const googleLogin = async (req, res) => {
           credits: 0
         }
       });
+      isNewUser = true;
     }
     
     const token = signToken(user);
     
-    const { password: _, ...userWithoutPassword } = user;
-    res.status(200).json({ user: userWithoutPassword, token });
+    res.status(200).json({ user: publicUser(user), token, isNewUser });
   } catch (_error) {
     res.status(500).json({ error: 'Google login failed' });
   }

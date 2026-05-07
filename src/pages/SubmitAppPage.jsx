@@ -120,6 +120,7 @@ export default function SubmitAppPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const credits = Number(user?.credits ?? 0);
 
   const parseJsonSafely = async (res) => {
     const text = await res.text();
@@ -475,7 +476,7 @@ export default function SubmitAppPage() {
           </div>
 
           <div className={styles.trustBox}>
-            <strong>Account status:</strong> {user ? `${user.role} • ${user.credits} credits available` : 'Not logged in'}
+            <strong>Account status:</strong> {user ? `${user.role} • ${credits} credits available` : 'Not logged in'}
             {eligibility && (
               <div className={styles.eligibilityBox}>
                 {eligibility.hasUnlockedPostingAccess

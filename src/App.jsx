@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { useContext } from 'react';
 import MainLayout from './layouts/MainLayout';
 import HomePage from './pages/HomePage';
 import ProductPage from './pages/ProductPage';
@@ -9,23 +10,92 @@ import SubmitAppPage from './pages/SubmitAppPage';
 import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
 import SearchPage from './pages/SearchPage';
-import { AuthProvider } from './context/AuthContext';
+import ForbiddenPage from './pages/ForbiddenPage';
+import { AuthContext, AuthProvider } from './context/AuthContext';
+import { canAccessAdmin } from './lib/accessControl';
 import { Toaster } from 'react-hot-toast';
+
+function AccessGate({ children, requiredRoles = [], allowAccess }) {
+  const location = useLocation();
+  const { user } = useContext(AuthContext);
+
+  if (!user) {
+    return (
+      <Navigate
+        to="/forbidden"
+        replace
+        state={{
+          reason: 'login_required',
+          from: location,
+          requiredRoles,
+        }}
+      />
+    );
+  }
+
+  const hasRole = requiredRoles.length === 0 || requiredRoles.includes(user.role);
+  const isAllowed = typeof allowAccess === 'function' ? allowAccess(user) : hasRole;
+
+  if (!isAllowed) {
+    return (
+      <Navigate
+        to="/forbidden"
+        replace
+        state={{
+          reason: 'forbidden',
+          from: location,
+          requiredRoles,
+        }}
+      />
+    );
+  }
+
+  return children;
+}
 
 function AnimatedRoutes() {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="sync">
       <Routes location={location} key={location.pathname}>
         <Route element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/product/:id" element={<ProductPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/credits" element={<CreditsPage />} />
-          <Route path="/submit-app" element={<SubmitAppPage />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/forbidden" element={<ForbiddenPage />} />
+          <Route
+            path="/credits"
+            element={(
+              <AccessGate>
+                <CreditsPage />
+              </AccessGate>
+            )}
+          />
+          <Route
+            path="/submit-app"
+            element={(
+              <AccessGate requiredRoles={['DEVELOPER']}>
+                <SubmitAppPage />
+              </AccessGate>
+            )}
+          />
+          <Route
+            path="/admin"
+            element={(
+              <AccessGate requiredRoles={['ADMIN']} allowAccess={canAccessAdmin}>
+                <AdminPage />
+              </AccessGate>
+            )}
+          />
+          <Route
+            path="/settings"
+            element={(
+              <AccessGate>
+                <SettingsPage />
+              </AccessGate>
+            )}
+          />
           <Route path="/search" element={<SearchPage />} />
         </Route>
       </Routes>

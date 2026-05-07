@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import toast from 'react-hot-toast';
 import { AuthContext } from '../context/AuthContext';
+import { canAccessAdmin } from '../lib/accessControl';
 import styles from './AdminPage.module.css';
 
 export default function AdminPage() {
   const [payments, setPayments] = useState([]);
   const [pendingApps, setPendingApps] = useState([]);
+  const [liveProducts, setLiveProducts] = useState([]);
+  const [featuredIds, setFeaturedIds] = useState([]);
   const [appsError, setAppsError] = useState('');
   const [activeTab, setActiveTab] = useState('apps');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { user } = useContext(AuthContext);
   const token = localStorage.getItem('token');
-  const allowedAdminEmails = new Set(['rayen@bahroun.com', 'ahmedmidonajjar@gmail.com']);
-  const isAdmin = user?.role === 'ADMIN' || allowedAdminEmails.has(String(user?.email || '').toLowerCase());
+  const isAdmin = canAccessAdmin(user);
 
   const fetchPayments = useCallback(async (hardRefresh = false) => {
     try {
@@ -68,11 +70,71 @@ export default function AdminPage() {
     }
   }, [token]);
 
+  const fetchLiveProducts = useCallback(async () => {
+    if (!token) {
+      setLiveProducts([]);
+      setFeaturedIds([]);
+      return;
+    }
+
+    try {
+      const res = await fetch('http://localhost:5000/api/apps/admin/live-products', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) {
+        setLiveProducts(data);
+        setFeaturedIds(data.filter((product) => product.isFeatured).map((product) => product.id));
+      } else {
+        setLiveProducts([]);
+        setFeaturedIds([]);
+      }
+    } catch (error) {
+      console.error(error);
+      setLiveProducts([]);
+      setFeaturedIds([]);
+    }
+  }, [token]);
+
   useEffect(() => {
     if (!isAdmin) return;
     fetchPayments();
     fetchPendingApps();
-  }, [fetchPayments, fetchPendingApps, isAdmin]);
+    fetchLiveProducts();
+  }, [fetchPayments, fetchPendingApps, fetchLiveProducts, isAdmin]);
+
+  const toggleFeatured = (productId) => {
+    setFeaturedIds((current) => (
+      current.includes(productId)
+        ? current.filter((id) => id !== productId)
+        : [...current, productId].slice(0, 6)
+    ));
+  };
+
+  const saveFeaturedProducts = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/apps/admin/featured-products', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ids: featuredIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to update featured apps');
+        return;
+      }
+      toast.success('Featured apps updated');
+      await fetchLiveProducts();
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to update featured apps');
+    }
+  };
 
   const handleApprove = async (transactionId) => {
     try {
@@ -198,14 +260,7 @@ export default function AdminPage() {
   };
 
   if (!isAdmin) {
-    return (
-      <div className={styles.page}>
-        <header className={styles.header}>
-          <h1 className={styles.title}>Admin Dashboard</h1>
-          <p className={styles.subtitle}>You do not have permission to access this page.</p>
-        </header>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -232,19 +287,30 @@ export default function AdminPage() {
         >
           Pending Payments ({payments.length})
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('featured')}
+          className={activeTab === 'featured' ? styles.tabActive : styles.tab}
+        >
+          Featured Apps ({featuredIds.length})
+        </button>
       </div>
 
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <h2 className={styles.panelTitle}>
-            {activeTab === 'apps' ? 'Developer App Submissions' : 'D17 Payment Confirmations'}
+            {activeTab === 'apps'
+              ? 'Developer App Submissions'
+              : activeTab === 'payments'
+                ? 'D17 Payment Confirmations'
+                : 'Featured App Selection'}
           </h2>
           <button
             type="button"
             className={styles.refreshButton}
             onClick={async () => {
               setIsRefreshing(true);
-              await Promise.all([fetchPendingApps(true), fetchPayments(true)]);
+              await Promise.all([fetchPendingApps(true), fetchPayments(true), fetchLiveProducts()]);
               setIsRefreshing(false);
             }}
             disabled={isRefreshing}
@@ -332,7 +398,7 @@ export default function AdminPage() {
               </tbody>
             </table>
           </div>
-        ) : (
+        ) : activeTab === 'payments' ? (
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -386,6 +452,38 @@ export default function AdminPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : (
+          <div className={styles.featuredPanel}>
+            <div className={styles.featuredHeader}>
+              <p className={styles.meta}>Select up to 6 live apps. Their order follows the order shown here.</p>
+              <button type="button" className={styles.approve} onClick={saveFeaturedProducts}>
+                Save Featured Apps
+              </button>
+            </div>
+
+            <div className={styles.featuredGrid}>
+              {liveProducts.length === 0 && (
+                <div className={styles.empty}>No live products available.</div>
+              )}
+              {liveProducts.map((product) => {
+                const checked = featuredIds.includes(product.id);
+                return (
+                  <label key={product.id} className={`${styles.featuredCard} ${checked ? styles.featuredCardActive : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleFeatured(product.id)}
+                    />
+                    <img src={product.thumbnailUrl} alt="" />
+                    <span>
+                      <strong>{product.title}</strong>
+                      <small>{product.developer?.email || 'Unknown developer'}</small>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
         )}
       </section>

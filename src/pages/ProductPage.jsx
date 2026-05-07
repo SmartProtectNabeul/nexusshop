@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft,
@@ -12,10 +13,12 @@ import {
   User,
   Monitor,
   Star,
+  X,
 } from 'lucide-react';
 import PageTransition from '../components/PageTransition';
 import StarRating from '../components/StarRating';
 import { AuthContext } from '../context/AuthContext';
+import { cacheProduct, getCachedProduct } from '../lib/storefrontCache';
 import styles from './ProductPage.module.css';
 
 const formatPrice = (price) => {
@@ -44,14 +47,45 @@ const resolveProductImage = (product) => {
   return thumbnail;
 };
 
+const getYouTubeEmbedUrl = (value) => {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.replace(/^www\./, '');
+    let videoId = '';
+    if (host === 'youtu.be') {
+      videoId = url.pathname.slice(1);
+    } else if (host.endsWith('youtube.com')) {
+      videoId = url.searchParams.get('v') || url.pathname.split('/').filter(Boolean).pop();
+    }
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+  } catch (_error) {
+    return null;
+  }
+};
+
+const isVideoUrl = (value) => /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(String(value || ''));
+
+const readProductTransition = (id) => {
+  const rawTransition = sessionStorage.getItem('productTransition');
+  if (!rawTransition) return null;
+  try {
+    const parsed = JSON.parse(rawTransition);
+    return parsed?.id === id && parsed?.rect ? parsed : null;
+  } catch (_error) {
+    return null;
+  } finally {
+    sessionStorage.removeItem('productTransition');
+  }
+};
+
 export default function ProductPage() {
   const { id } = useParams();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user } = useContext(AuthContext);
-  const [product, setProduct] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, login } = useContext(AuthContext);
+  const [product, setProduct] = useState(() => getCachedProduct(id));
+  const [isLoading, setIsLoading] = useState(() => !getCachedProduct(id));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [purchaseStatus, setPurchaseStatus] = useState(null);
@@ -64,6 +98,49 @@ export default function ProductPage() {
   const [isSavingReview, setIsSavingReview] = useState(false);
   const [productApiKey, setProductApiKey] = useState('');
   const [isLoadingApiKey, setIsLoadingApiKey] = useState(false);
+  const [reviewHoverRating, setReviewHoverRating] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [entryTransition, setEntryTransition] = useState(() => readProductTransition(id));
+  const isRTL = i18n.language === 'ar';
+  const renderEntryOverlay = () => entryTransition ? (
+    <motion.div
+      className={styles.entryOverlay}
+      initial={{
+        top: entryTransition.rect.top,
+        left: entryTransition.rect.left,
+        width: entryTransition.rect.width,
+        height: entryTransition.rect.height,
+        borderRadius: 16,
+        opacity: 1,
+      }}
+      animate={{
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        borderRadius: 0,
+        opacity: 0,
+      }}
+      transition={{ duration: 0.76, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <img src={entryTransition.image} alt="" />
+      <div>
+        <span>{entryTransition.title}</span>
+      </div>
+    </motion.div>
+  ) : null;
+
+  useEffect(() => {
+    if (!entryTransition) return undefined;
+    const scrollTimer = window.setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }, 90);
+    const timer = window.setTimeout(() => setEntryTransition(null), 780);
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(timer);
+    };
+  }, [entryTransition]);
 
   const fetchProductApiKey = useCallback(async () => {
     if (!user || !id) return;
@@ -115,6 +192,15 @@ export default function ProductPage() {
   };
 
   const fetchProduct = async (hardRefresh = false) => {
+    const cachedProduct = getCachedProduct(id);
+    if (!hardRefresh && cachedProduct) {
+      setProduct(cachedProduct);
+      setIsLoading(false);
+      setIsRefreshing(false);
+      setLoadError('');
+      return cachedProduct;
+    }
+
     setIsLoading(!hardRefresh);
     setIsRefreshing(hardRefresh);
     setLoadError('');
@@ -127,8 +213,11 @@ export default function ProductPage() {
         throw new Error(data.error || 'Failed to fetch product');
       }
       setProduct(data);
+      cacheProduct(data);
+      return data;
     } catch (error) {
       setLoadError(error.message);
+      return null;
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -181,7 +270,9 @@ export default function ProductPage() {
   useEffect(() => {
     let isCancelled = false;
     (async () => {
-      await fetchProduct(false);
+      if (!getCachedProduct(id)) {
+        await fetchProduct(false);
+      }
       if (!isCancelled) {
         await fetchPurchaseStatus(false);
         await fetchReviews(false);
@@ -210,23 +301,32 @@ export default function ProductPage() {
   }, [myExistingReview]);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.get('purchase') === 'success') {
-      toast.success('Payment completed. Verifying purchase access...');
-      fetchPurchaseStatus(true);
-      fetchProduct(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.search]);
+    if (lightboxIndex === null) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setLightboxIndex(null);
+      }
+      if (event.key === 'ArrowLeft') {
+        moveLightbox(isRTL ? 1 : -1);
+      }
+      if (event.key === 'ArrowRight') {
+        moveLightbox(isRTL ? -1 : 1);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxIndex, product?.mediaUrls?.length, isRTL]);
 
-  const isRTL = i18n.language === 'ar';
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
   if (isLoading) {
     return (
-      <PageTransition>
-        <div className={styles.notFound}>
-          <h2>Loading product...</h2>
+      <PageTransition skipInitial={Boolean(entryTransition)}>
+        <div className={styles.page}>
+          {renderEntryOverlay()}
+          <div className={`${styles.notFound} ${entryTransition ? styles.loadingBehindEntry : ''}`}>
+            <h2>Loading product...</h2>
+          </div>
         </div>
       </PageTransition>
     );
@@ -234,7 +334,7 @@ export default function ProductPage() {
 
   if (!product) {
     return (
-      <PageTransition>
+      <PageTransition skipInitial={Boolean(entryTransition)}>
         <div className={styles.notFound}>
           <h2>{loadError || 'Product not found'}</h2>
           <button onClick={() => navigate('/')} className={styles.backBtn}>
@@ -257,6 +357,9 @@ export default function ProductPage() {
   const requirements = product.requirements || 'See product description';
   const storageSize = product.storageSize || 'N/A';
   const galleryItems = Array.isArray(product.mediaUrls) ? product.mediaUrls : [];
+  const lightboxItem = lightboxIndex === null ? null : galleryItems[lightboxIndex];
+  const demoVideoEmbedUrl = getYouTubeEmbedUrl(product.demoVideoUrl);
+  const demoVideoUrl = product.demoVideoUrl;
   const canDownload = Boolean(purchaseStatus?.canDownload);
   const isFreeOrOwned = Boolean(purchaseStatus?.isFree || purchaseStatus?.isOwner);
 
@@ -289,7 +392,7 @@ export default function ProductPage() {
 
     setIsBuying(true);
     try {
-      const res = await fetch('http://localhost:5000/api/payments/checkout', {
+      const res = await fetch('http://localhost:5000/api/payments/purchase', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -298,13 +401,21 @@ export default function ProductPage() {
         body: JSON.stringify({ productId: id }),
       });
       const data = await parseJsonSafely(res);
-      if (!res.ok || !data.url) {
-        toast.error(data.error || 'Failed to start checkout');
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to buy product');
+        if (data.code === 'INSUFFICIENT_CREDITS') {
+          navigate('/credits');
+        }
         return;
       }
-      window.location.assign(data.url);
+      if (data.user) {
+        login(data.user, localStorage.getItem('token'));
+      }
+      toast.success(data.message || 'Product purchased');
+      await fetchPurchaseStatus(true);
+      await fetchProduct(true);
     } catch (_error) {
-      toast.error('Failed to start checkout');
+      toast.error('Failed to buy product');
     } finally {
       setIsBuying(false);
     }
@@ -345,10 +456,27 @@ export default function ProductPage() {
     }
   };
 
+  const moveLightbox = (step) => {
+    setLightboxIndex((current) => {
+      if (current === null || galleryItems.length === 0) return null;
+      return (current + step + galleryItems.length) % galleryItems.length;
+    });
+  };
+
   return (
-    <PageTransition>
+    <PageTransition skipInitial={Boolean(entryTransition)}>
       <div className={styles.page}>
-        <div className={styles.container}>
+        {renderEntryOverlay()}
+        <motion.div
+          className={`${styles.container} ${entryTransition ? styles.containerEntering : ''}`}
+          initial={entryTransition ? { opacity: 0, y: 12 } : false}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            delay: entryTransition ? 0.62 : 0,
+            duration: 0.36,
+            ease: [0.16, 1, 0.3, 1],
+          }}
+        >
           {/* Back button */}
           <motion.button
             className={styles.backBtn}
@@ -383,7 +511,8 @@ export default function ProductPage() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             >
-              <img
+              <motion.img
+                layoutId={`product-image-${product.id}`}
                 src={productImage}
                 alt={product.title}
                 className={styles.thumbnail}
@@ -435,7 +564,7 @@ export default function ProductPage() {
                       ? 'Download'
                       : (isFreeOrOwned || isFree)
                         ? t('product.get')
-                        : t('product.buy')}
+                        : 'Buy with credits'}
                 </motion.button>
               </div>
             </motion.div>
@@ -462,19 +591,58 @@ export default function ProductPage() {
             >
               <h2 className={styles.sectionTitle}>Gallery</h2>
               <div className={styles.galleryGrid}>
-                {galleryItems.map((item) => (
-                  <div key={item} className={styles.galleryCard}>
-                    <img
-                      src={item}
-                      alt={`${product.title} gallery`}
-                      className={styles.galleryImage}
-                      loading="lazy"
-                      onError={(event) => {
-                        event.currentTarget.src = '/thumbnails/code-editor.png';
-                      }}
-                    />
+                {galleryItems.map((item, index) => (
+                  <div
+                    key={item}
+                    role="button"
+                    tabIndex={0}
+                    className={styles.galleryCard}
+                    onClick={() => setLightboxIndex(index)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setLightboxIndex(index);
+                      }
+                    }}
+                  >
+                    {isVideoUrl(item) ? (
+                      <video src={item} className={styles.galleryImage} controls preload="metadata" />
+                    ) : (
+                      <img
+                        src={item}
+                        alt={`${product.title} gallery`}
+                        className={styles.galleryImage}
+                        loading="lazy"
+                        onError={(event) => {
+                          event.currentTarget.src = '/thumbnails/code-editor.png';
+                        }}
+                      />
+                    )}
                   </div>
                 ))}
+              </div>
+            </motion.section>
+          )}
+
+          {demoVideoUrl && (
+            <motion.section
+              className={styles.section}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.47, duration: 0.5 }}
+            >
+              <h2 className={styles.sectionTitle}>Demo Video</h2>
+              <div className={styles.videoFrame}>
+                {demoVideoEmbedUrl ? (
+                  <iframe
+                    src={demoVideoEmbedUrl}
+                    title={`${product.title} demo video`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video src={demoVideoUrl} controls preload="metadata" />
+                )}
               </div>
             </motion.section>
           )}
@@ -489,18 +657,35 @@ export default function ProductPage() {
             <h2 className={styles.sectionTitle}>Reviews</h2>
             {purchaseStatus?.purchased ? (
               <form className={styles.reviewForm} onSubmit={handleReviewSubmit}>
-                <label>
-                  Rating
-                  <select
-                    value={reviewRating}
-                    onChange={(e) => setReviewRating(Number(e.target.value))}
-                    className={styles.reviewInput}
+                <div>
+                  <span className={styles.reviewFieldLabel}>Rating</span>
+                  <div
+                    className={styles.starPicker}
+                    onMouseLeave={() => setReviewHoverRating(0)}
+                    role="radiogroup"
+                    aria-label="Review rating"
                   >
-                    {[5, 4, 3, 2, 1].map((value) => (
-                      <option key={value} value={value}>{value} stars</option>
-                    ))}
-                  </select>
-                </label>
+                    {[1, 2, 3, 4, 5].map((value) => {
+                      const isActive = value <= (reviewHoverRating || reviewRating);
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`${styles.starPickButton} ${isActive ? styles.starPickButtonActive : ''}`}
+                          onMouseEnter={() => setReviewHoverRating(value)}
+                          onFocus={() => setReviewHoverRating(value)}
+                          onClick={() => setReviewRating(value)}
+                          aria-label={`${value} star${value === 1 ? '' : 's'}`}
+                          aria-checked={reviewRating === value}
+                          role="radio"
+                        >
+                          <Star size={24} />
+                        </button>
+                      );
+                    })}
+                    <span className={styles.starPickerValue}>{reviewRating}/5</span>
+                  </div>
+                </div>
                 <label>
                   Comment
                   <textarea
@@ -527,8 +712,14 @@ export default function ProductPage() {
                 {reviews.map((review) => (
                   <article key={review.id} className={styles.reviewCard}>
                     <div className={styles.reviewTop}>
-                      <strong>{review.buyer?.email || 'User'}</strong>
-                      <span>{review.rating}/5</span>
+                      <div className={styles.reviewAuthor}>
+                        <span className={styles.reviewAvatar}>{String(review.buyer?.email || 'U').charAt(0).toUpperCase()}</span>
+                        <div>
+                          <strong>{review.buyer?.email || 'User'}</strong>
+                          <span>{review.createdAt ? new Date(review.createdAt).toLocaleDateString() : 'Recent review'}</span>
+                        </div>
+                      </div>
+                      <StarRating rating={Number(review.rating || 0)} size={14} />
                     </div>
                     <p>{review.comment || 'No comment provided.'}</p>
                   </article>
@@ -671,7 +862,54 @@ export default function ProductPage() {
               </div>
             </motion.section>
           )}
-        </div>
+
+          {lightboxItem && (
+            <motion.div
+              className={styles.lightbox}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setLightboxIndex(null)}
+            >
+              <button type="button" className={styles.lightboxClose} onClick={() => setLightboxIndex(null)} aria-label="Close gallery">
+                <X size={22} />
+              </button>
+              {galleryItems.length > 1 && (
+                <button
+                  type="button"
+                  className={`${styles.lightboxArrow} ${styles.lightboxArrowLeft}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    moveLightbox(isRTL ? 1 : -1);
+                  }}
+                  aria-label="Previous image"
+                >
+                  <ArrowLeft size={26} />
+                </button>
+              )}
+              <div className={styles.lightboxStage} onClick={(event) => event.stopPropagation()}>
+                {isVideoUrl(lightboxItem) ? (
+                  <video src={lightboxItem} controls autoPlay />
+                ) : (
+                  <img src={lightboxItem} alt={`${product.title} gallery enlarged`} />
+                )}
+              </div>
+              {galleryItems.length > 1 && (
+                <button
+                  type="button"
+                  className={`${styles.lightboxArrow} ${styles.lightboxArrowRight}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    moveLightbox(isRTL ? -1 : 1);
+                  }}
+                  aria-label="Next image"
+                >
+                  <ArrowRight size={26} />
+                </button>
+              )}
+            </motion.div>
+          )}
+        </motion.div>
       </div>
     </PageTransition>
   );

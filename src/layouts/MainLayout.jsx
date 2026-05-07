@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Search, Loader2, Settings, ChevronDown, LogOut, Globe, ExternalLink, UserCog } from 'lucide-react';
+import { Search, Loader2, Settings, ChevronDown, LogOut, Globe, ExternalLink, UserCog, LogIn, Moon, Sun, BadgeCheck, Mail, Phone, MessageCircle, ShieldCheck } from 'lucide-react';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import InteractiveGradientBackground from '../components/ui/InteractiveGradientBackground';
@@ -16,10 +16,11 @@ export default function MainLayout() {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isFetchingUser } = useContext(AuthContext);
+  const { user, logout, isFetchingUser, theme, toggleTheme, setUser } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const credits = Number(user?.credits ?? 0);
 
   const isHome = location.pathname === '/';
   const currentLanguage = languageOptions.find((option) => option.code === i18n.language) || languageOptions[0];
@@ -53,6 +54,26 @@ export default function MainLayout() {
     logout();
     navigate('/');
     setIsMenuOpen(false);
+  };
+
+  const updateAccountRole = async (nextRole) => {
+    if (!user || nextRole === user.role) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ role: nextRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update account type');
+      setUser(data.user);
+      localStorage.setItem('user', JSON.stringify(data.user));
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -96,7 +117,7 @@ export default function MainLayout() {
             {user && (
               <Link to="/credits" className={styles.creditPill}>
                 <span className={styles.creditValue}>
-                  {isFetchingUser ? <Loader2 size={16} className={styles.spinIcon} /> : `${user.credits} CR`}
+                  {isFetchingUser ? <Loader2 size={16} className={styles.spinIcon} /> : `${credits} CR`}
                 </span>
                 <span className={styles.creditPlus}>+</span>
               </Link>
@@ -105,6 +126,13 @@ export default function MainLayout() {
             {user?.role === 'ADMIN' && (
               <Link to="/admin" className={styles.adminPill}>
                 Admin Panel
+              </Link>
+            )}
+
+            {!user && (
+              <Link to="/login" className={styles.loginButton}>
+                <LogIn size={16} />
+                Login
               </Link>
             )}
 
@@ -125,6 +153,35 @@ export default function MainLayout() {
                 <div className={styles.menuDropdown} role="menu">
                   {user ? (
                     <>
+                      <div className={styles.quickSettings}>
+                        <div className={styles.quickHeader}>
+                          <span>{user.email}</span>
+                          <small>{user.role}</small>
+                        </div>
+
+                        <button type="button" className={styles.quickRow} onClick={toggleTheme}>
+                          {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
+                          <span>Theme</span>
+                          <strong>{theme === 'dark' ? 'Dark' : 'Light'}</strong>
+                        </button>
+
+                        {user.role !== 'ADMIN' && (
+                          <label className={styles.quickSelectRow}>
+                            <BadgeCheck size={16} />
+                            <span>Account type</span>
+                            <select
+                              value={user.role}
+                              onChange={(event) => updateAccountRole(event.target.value)}
+                            >
+                              <option value="CONSUMER">Customer</option>
+                              <option value="DEVELOPER">Developer</option>
+                            </select>
+                          </label>
+                        )}
+                      </div>
+
+                      <div className={styles.menuDivider} />
+
                       <Link
                         to="/settings"
                         className={styles.menuItem}
@@ -175,14 +232,6 @@ export default function MainLayout() {
                     </>
                   ) : (
                     <>
-                      <Link
-                        to="/login"
-                        className={styles.menuItem}
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        <UserCog size={16} />
-                        Login
-                      </Link>
                       <a
                         href="https://wa.me/21658885966"
                         target="_blank"
@@ -229,6 +278,72 @@ export default function MainLayout() {
       {/* Footer */}
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
+          <div className={styles.footerBrandBlock}>
+            <Link to="/" className={styles.footerBrand}>
+              <img src="/logo.jpg" alt="NexusShop" className={styles.footerLogo} />
+              <span>{t('brand')}</span>
+            </Link>
+            <p>
+              A curated marketplace for trusted apps, developer tools, and digital products with review,
+              licensing, and secure delivery built in.
+            </p>
+            <div className={styles.trustRow}>
+              <span><ShieldCheck size={15} /> Reviewed submissions</span>
+              <span><ShieldCheck size={15} /> Secure downloads</span>
+              <span><ShieldCheck size={15} /> Buyer protection</span>
+            </div>
+          </div>
+
+          <div className={styles.footerColumns}>
+            <div className={styles.footerColumn}>
+              <h3>Marketplace</h3>
+              <Link to="/" className={styles.footerLink}>Browse apps</Link>
+              <Link to="/search" className={styles.footerLink}>Search</Link>
+              <Link to="/credits" className={styles.footerLink}>Credits</Link>
+              <Link to="/submit-app" className={styles.footerLink}>Submit an app</Link>
+            </div>
+
+            <div className={styles.footerColumn}>
+              <h3>Support</h3>
+              <a className={styles.footerLink} href="mailto:support@nexusshop.local">
+                <Mail size={14} /> support@nexusshop.local
+              </a>
+              <a className={styles.footerLink} href="tel:+21658885966">
+                <Phone size={14} /> +216 58 885 966
+              </a>
+              <a className={styles.footerLink} href="https://wa.me/21658885966" target="_blank" rel="noopener noreferrer">
+                <MessageCircle size={14} /> WhatsApp support
+              </a>
+            </div>
+
+            <div className={styles.footerColumn}>
+              <h3>Trust & Legal</h3>
+              <span className={styles.footerLink}>{t('footer.terms')}</span>
+              <span className={styles.footerLink}>{t('footer.privacy')}</span>
+              <span className={styles.footerLink}>Refund policy</span>
+              <span className={styles.footerLink}>Security checks</span>
+            </div>
+
+            <div className={styles.footerColumn}>
+              <h3>Social</h3>
+              <div className={styles.socialLinks}>
+                <a href="https://github.com/" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+                  GH
+                </a>
+                <a href="https://www.linkedin.com/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+                  IN
+                </a>
+                <a href="https://twitter.com/" target="_blank" rel="noopener noreferrer" aria-label="X">
+                  X
+                </a>
+              </div>
+              <p className={styles.footerFinePrint}>Business inquiries and custom builds are welcome.</p>
+            </div>
+          </div>
+
+          <div className={styles.footerBottomNote}>
+            NexusShop does not guarantee third-party app behavior. Always review permissions before installing.
+          </div>
           <p className={styles.footerCopy}>
             © {new Date().getFullYear()} {t('brand')}. {t('footer.rights')}
           </p>

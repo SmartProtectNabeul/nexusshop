@@ -5,6 +5,12 @@ const canAccessUser = (requestUserId, requestRole, targetUserId) => {
   return requestRole === 'ADMIN' || requestUserId === targetUserId;
 };
 
+const normalizeUser = (user) => ({
+  ...user,
+  credits: Number(user.credits ?? 0),
+  walletBalance: Number(user.walletBalance ?? 0),
+});
+
 // GET /api/users/:id
 const getUser = async (req, res) => {
   try {
@@ -19,7 +25,7 @@ const getUser = async (req, res) => {
       select: { id: true, email: true, role: true, credits: true, walletBalance: true }
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.status(200).json(user);
+    res.status(200).json(normalizeUser(user));
   } catch (error) {
     console.error('Error getting user:', error);
     res.status(500).json({ error: 'Failed to fetch user' });
@@ -39,6 +45,9 @@ const updateUser = async (req, res) => {
     const dataToUpdate = {};
 
     if (typeof role === 'string') {
+      if (!['CONSUMER', 'DEVELOPER', 'ADMIN'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid account type' });
+      }
       // Only admins can grant ADMIN role.
       if (role === 'ADMIN' && req.role !== 'ADMIN') {
         return res.status(403).json({ error: 'Only admins can assign admin role' });
@@ -63,7 +72,7 @@ const updateUser = async (req, res) => {
       select: { id: true, email: true, role: true, credits: true, walletBalance: true }
     });
     
-    res.status(200).json({ message: 'User updated', user });
+    res.status(200).json({ message: 'User updated', user: normalizeUser(user) });
   } catch (error) {
     console.error('Error updating user:', error);
     res.status(500).json({ error: 'Failed to update user' });

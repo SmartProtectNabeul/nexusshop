@@ -1,17 +1,17 @@
 // Restarting nodemon to load fresh Prisma Client
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
+const loadEnv = require('./lib/loadEnv');
 
-dotenv.config({ override: true });
+loadEnv();
 
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Need raw body for Stripe webhook signature verification
+// Need raw body for signed D17 webhook verification.
 app.use((req, res, next) => {
-  if (req.originalUrl === '/api/payments/webhook' || req.originalUrl === '/api/d17/webhook') {
-    next(); // Pass to webhook route untouched
+  if (req.originalUrl === '/api/d17/webhook') {
+    next(); // Pass to webhook route untouched.
   } else {
     express.json()(req, res, next);
   }

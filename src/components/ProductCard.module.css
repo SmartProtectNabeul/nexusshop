@@ -47,7 +47,7 @@
 .thumbnailWrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 16 / 10;
   background: var(--surface-dark);
   display: flex;
   align-items: center;
@@ -62,8 +62,8 @@
 }
 
 .thumbnail {
-  width: 70%;
-  height: 70%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   border-radius: var(--radius-md);
   will-change: transform;

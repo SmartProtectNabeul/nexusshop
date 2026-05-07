@@ -3,7 +3,7 @@
  * Prisma 7 requires an explicit database adapter instead of reading
  * the connection URL automatically from the environment.
  */
-require('dotenv').config();
+require('./loadEnv')();
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const { Pool } = require('pg');

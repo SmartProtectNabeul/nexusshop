@@ -17,24 +17,25 @@ const pageVariants = {
     },
   },
   exit: {
-    opacity: 0,
-    y: -10,
-    filter: 'blur(4px)',
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
     transition: {
-      duration: 0.25,
+      duration: 0.82,
       ease: [0.16, 1, 0.3, 1],
     },
   },
 };
 
-export default function PageTransition({ children }) {
+export default function PageTransition({ children, skipInitial = false }) {
   const location = useLocation();
+  const isCardEntry = location.pathname.startsWith('/product/') && sessionStorage.getItem('productTransition');
 
   return (
     <motion.div
       key={location.pathname}
       variants={pageVariants}
-      initial="initial"
+      initial={skipInitial || isCardEntry ? false : 'initial'}
       animate="animate"
       exit="exit"
       style={{ flex: 1 }}

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { User, Tag } from 'lucide-react';
 import StarRating from './StarRating';
+import { cacheProduct } from '../lib/storefrontCache';
 import styles from './ProductCard.module.css';
 
 const formatPrice = (price) => {
@@ -25,7 +26,7 @@ const resolveProductImage = (product) => {
   return thumbnail;
 };
 
-export default function ProductCard({ product, index }) {
+export default function ProductCard({ product, index, onOpen }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
@@ -43,6 +44,30 @@ export default function ProductCard({ product, index }) {
     : description;
 
   const handleClick = () => {
+    cacheProduct(product);
+    const card = document.getElementById(`product-card-${productId}`);
+    const rect = card?.getBoundingClientRect();
+    if (onOpen) {
+      onOpen(product, rect);
+      return;
+    }
+    if (rect) {
+      sessionStorage.setItem('productTransition', JSON.stringify({
+        id: productId,
+        title: product.title,
+        image: imageSrc,
+        rect: {
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height,
+        },
+        scroll: {
+          x: window.scrollX || 0,
+          y: window.scrollY || 0,
+        },
+      }));
+    }
     navigate(`/product/${productId}`);
   };
 
@@ -72,6 +97,7 @@ export default function ProductCard({ product, index }) {
 
       <motion.article
         className={`${styles.card} ${isHovered ? styles.cardHovered : ''}`}
+        layoutId={`product-card-${productId}`}
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{
@@ -87,6 +113,7 @@ export default function ProductCard({ product, index }) {
       >
         <div className={styles.thumbnailWrap}>
           <motion.img
+            layoutId={`product-image-${productId}`}
             src={imageSrc}
             alt={product.title}
             className={styles.thumbnail}

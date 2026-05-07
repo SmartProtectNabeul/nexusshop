@@ -10,6 +10,9 @@ router.get('/', productController.getProducts);
 // Search products (Public)
 router.get('/search', productController.searchProducts);
 
+// Featured products curated by admins (Public)
+router.get('/featured', productController.getFeaturedProducts);
+
 // Get specific product (Public)
 router.get('/:id', productController.getProduct);
 

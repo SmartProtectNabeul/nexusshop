@@ -2,10 +2,19 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 
 export const AuthContext = createContext();
 
+const normalizeUser = (userData) => {
+  if (!userData) return null;
+  return {
+    ...userData,
+    credits: Number(userData.credits ?? 0),
+    walletBalance: Number(userData.walletBalance ?? 0),
+  };
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
+    return storedUser ? normalizeUser(JSON.parse(storedUser)) : null;
   });
   const [token, setToken] = useState(() => localStorage.getItem('token'));
   const [theme, setTheme] = useState(() => {
@@ -23,7 +32,7 @@ export const AuthProvider = ({ children }) => {
         }
       });
       if (res.ok) {
-        const latestData = await res.json();
+        const latestData = normalizeUser(await res.json());
         setUser(latestData);
         localStorage.setItem('user', JSON.stringify(latestData));
       }
@@ -50,12 +59,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = (userData, authToken) => {
-    localStorage.setItem('user', JSON.stringify(userData));
+    const nextUser = normalizeUser(userData);
+    localStorage.setItem('user', JSON.stringify(nextUser));
     if (authToken) {
       localStorage.setItem('token', authToken);
       setToken(authToken);
     }
-    setUser(userData);
+    setUser(nextUser);
   };
 
   const logout = () => {

@@ -10,65 +10,78 @@ export function InteractiveGradientBackground({
 }) {
   const ref = useRef(null);
   const rafRef = useRef(null);
-  const pendingRef = useRef(null);
+  const currentRef = useRef({ x: initialOffset?.x ?? 0, y: initialOffset?.y ?? 0 });
+  const targetRef = useRef({ x: initialOffset?.x ?? 0, y: initialOffset?.y ?? 0 });
+  const delayRef = useRef(null);
 
   useEffect(() => {
     const host = ref.current;
     if (!host) return;
 
-    // set initial vars
-    host.style.setProperty('--posX', String(initialOffset?.x ?? 0));
-    host.style.setProperty('--posY', String(initialOffset?.y ?? 0));
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+    const setPosition = (x, y) => {
+      host.style.setProperty('--posX', String(x));
+      host.style.setProperty('--posY', String(y));
+    };
+
+    setPosition(currentRef.current.x, currentRef.current.y);
 
     if (!interactive) return;
 
+    const animate = () => {
+      const current = currentRef.current;
+      const target = targetRef.current;
+      const easing = prefersReduced ? 0.04 : 0.075;
+      const nextX = current.x + (target.x - current.x) * easing;
+      const nextY = current.y + (target.y - current.y) * easing;
+      currentRef.current = { x: nextX, y: nextY };
+      setPosition(nextX, nextY);
+
+      if (Math.abs(target.x - nextX) > 0.5 || Math.abs(target.y - nextY) > 0.5) {
+        rafRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      currentRef.current = target;
+      setPosition(target.x, target.y);
+      rafRef.current = null;
+    };
+
     const schedule = () => {
       if (rafRef.current) return;
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null;
-        const ev = pendingRef.current;
-        if (!host || !ev) return;
-        const rect = host.getBoundingClientRect();
-        const px = ('clientX' in ev ? ev.clientX : 0) - rect.left - rect.width / 2;
-        const py = ('clientY' in ev ? ev.clientY : 0) - rect.top - rect.height / 2;
+      rafRef.current = requestAnimationFrame(animate);
+    };
 
-        const prefersReduced =
-          typeof window !== 'undefined' &&
-          window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-        const k = prefersReduced ? 0.1 : intensity;
-
-        host.style.setProperty('--posX', String(px * k));
-        host.style.setProperty('--posY', String(py * k));
-      });
+    const updateTarget = (point) => {
+      const rect = host.getBoundingClientRect();
+      const px = point.clientX - rect.left - rect.width / 2;
+      const py = point.clientY - rect.top - rect.height / 2;
+      const k = prefersReduced ? 0.08 : intensity * 0.42;
+      window.clearTimeout(delayRef.current);
+      delayRef.current = window.setTimeout(() => {
+        targetRef.current = { x: px * k, y: py * k };
+        schedule();
+      }, prefersReduced ? 120 : 45);
     };
 
     const onPointer = (e) => {
-      pendingRef.current = e;
-      schedule();
+      updateTarget(e);
     };
     const onTouch = (e) => {
       if (!e.touches.length) return;
-      pendingRef.current = e.touches[0];
-      schedule();
-    };
-    const reset = () => {
-      host.style.setProperty('--posX', '0');
-      host.style.setProperty('--posY', '0');
+      updateTarget(e.touches[0]);
     };
 
     host.addEventListener('pointermove', onPointer, { passive: true });
     host.addEventListener('touchmove', onTouch, { passive: true });
-    host.addEventListener('pointerleave', reset);
-    host.addEventListener('touchend', reset);
-    host.addEventListener('touchcancel', reset);
 
     return () => {
       host.removeEventListener('pointermove', onPointer);
       host.removeEventListener('touchmove', onTouch);
-      host.removeEventListener('pointerleave', reset);
-      host.removeEventListener('touchend', reset);
-      host.removeEventListener('touchcancel', reset);
+      window.clearTimeout(delayRef.current);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [interactive, intensity, initialOffset?.x, initialOffset?.y]);

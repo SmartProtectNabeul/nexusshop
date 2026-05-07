@@ -11,6 +11,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
   if (!auth) return <>{children}</>;
   const { user, logout } = auth;
+  const credits = Number(user?.credits ?? 0);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +116,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {user.email.split('@')[0]}
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--accent-cyan)', fontWeight: 600 }}>{user.credits} Credits</div>
+              <div style={{ fontSize: '11px', color: 'var(--accent-cyan)', fontWeight: 600 }}>{credits} Credits</div>
             </div>
           </div>
           
