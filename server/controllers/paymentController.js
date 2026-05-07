@@ -1,9 +1,19 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 const prisma = require('../lib/prisma');
+const cacheStore = require('../lib/cacheStore');
 
 // Task 2: Create Checkout Session
 exports.createCheckoutSession = async (req, res) => {
-  const { productId, buyerId } = req.body;
+  const { productId } = req.body;
+  const buyerId = req.userId;
+
+  if (!buyerId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (!productId) {
+    return res.status(400).json({ error: 'Product ID is required' });
+  }
 
   try {
     // Fetch product details
@@ -13,6 +23,25 @@ exports.createCheckoutSession = async (req, res) => {
 
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
+    }
+
+    if (product.developerId === buyerId) {
+      return res.status(400).json({ error: 'You cannot purchase your own product' });
+    }
+
+    if (product.status !== 'LIVE') {
+      return res.status(400).json({ error: 'Product is not available for purchase' });
+    }
+
+    const existingPurchase = await prisma.transaction.findFirst({
+      where: {
+        buyerId,
+        productId,
+      },
+    });
+
+    if (existingPurchase) {
+      return res.status(400).json({ error: 'You already purchased this product' });
     }
 
     // Create Stripe Checkout Session
@@ -32,13 +61,14 @@ exports.createCheckoutSession = async (req, res) => {
         },
       ],
       mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.FRONTEND_URL}/product/${product.id}?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/product/${product.id}`,
       metadata: {
         productId: product.id,
-        buyerId: buyerId,
+        buyerId,
         developerId: product.developerId,
       },
+      client_reference_id: `${buyerId}:${product.id}`,
     });
 
     res.json({ url: session.url });
@@ -56,6 +86,10 @@ exports.stripeWebhook = async (req, res) => {
   let event;
 
   try {
+    if (!endpointSecret) {
+      return res.status(500).send('Stripe webhook secret is not configured');
+    }
+
     // Verify webhook signature to prevent spoofing
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err) {
@@ -79,6 +113,22 @@ exports.stripeWebhook = async (req, res) => {
     const developerCut = amountPaid * 0.90;
 
     try {
+      const existingTransaction = await prisma.transaction.findUnique({
+        where: { stripeId: session.payment_intent },
+      });
+
+      if (existingTransaction) {
+        return res.json({ received: true, duplicate: true });
+      }
+
+      const existingByPurchase = await prisma.transaction.findFirst({
+        where: { buyerId, productId },
+        select: { id: true },
+      });
+      if (existingByPurchase) {
+        return res.json({ received: true, duplicate: true });
+      }
+
       // Execute as a Prisma Transaction to ensure atomicity
       await prisma.$transaction(async (tx) => {
         
@@ -108,6 +158,9 @@ exports.stripeWebhook = async (req, res) => {
       });
 
       console.log(`Payment processed for product ${productId}: Developer credited ${developerCut} TND`);
+      cacheStore.delByPrefix('products:');
+      cacheStore.del(`product:${productId}`);
+      cacheStore.del(`purchase-status:${buyerId}:${productId}`);
     } catch (error) {
       console.error('Database transaction error during webhook processing:', error);
       // Even if DB fails, Stripe charge succeeded. We must log this for manual intervention.
@@ -116,4 +169,49 @@ exports.stripeWebhook = async (req, res) => {
   }
 
   res.json({ received: true });
+};
+
+exports.getPurchaseStatus = async (req, res) => {
+  const buyerId = req.userId;
+  const { productId } = req.params;
+  const forceRefresh = cacheStore.fromQuery(req);
+  const cacheKey = `purchase-status:${buyerId}:${productId}`;
+
+  if (!buyerId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  try {
+    const status = await cacheStore.getOrSet(
+      cacheKey,
+      45 * 1000,
+      forceRefresh,
+      async () => {
+        const product = await prisma.product.findUnique({
+          where: { id: productId },
+          select: { id: true, price: true, developerId: true, status: true },
+        });
+        if (!product || product.status !== 'LIVE') {
+          return { exists: false, purchased: false, canDownload: false, isOwner: false, isFree: false };
+        }
+        const isOwner = product.developerId === buyerId;
+        const isFree = Number(product.price || 0) === 0;
+        let purchased = false;
+        if (!isOwner && !isFree) {
+          const transaction = await prisma.transaction.findFirst({
+            where: { buyerId, productId: product.id },
+            select: { id: true },
+          });
+          purchased = Boolean(transaction);
+        }
+        const canDownload = isOwner || isFree || purchased;
+        return { exists: true, purchased, canDownload, isOwner, isFree };
+      }
+    );
+
+    return res.status(200).json(status);
+  } catch (error) {
+    console.error('Error getting purchase status:', error);
+    return res.status(500).json({ error: error?.message || 'Failed to get purchase status' });
+  }
 };

@@ -1,0 +1,239 @@
+﻿
+> nexusshop@0.0.0 lint
+> eslint .
+
+
+C:\githubRepos\nexusshop\server\alter.js
+  1:20  error  'require' is not defined  no-undef
+
+C:\githubRepos\nexusshop\server\clear.js
+  1:16  error  'require' is not defined  no-undef
+
+C:\githubRepos\nexusshop\server\controllers\authController.js
+   1:16  error  'require' is not defined           no-undef
+  17:12  error  'error' is defined but never used  no-unused-vars
+  40:12  error  'error' is defined but never used  no-unused-vars
+  60:12  error  'error' is defined but never used  no-unused-vars
+  65:1   error  'module' is not defined            no-undef
+
+C:\githubRepos\nexusshop\server\controllers\d17PaymentController.js
+    1:16  error  'require' is not defined                                                                no-undef
+    2:7   error  'crypto' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+    2:16  error  'require' is not defined                                                                no-undef
+  130:1   error  'module' is not defined                                                                 no-undef
+
+C:\githubRepos\nexusshop\server\controllers\paymentController.js
+   1:16  error  'require' is not defined  no-undef
+   1:34  error  'process' is not defined  no-undef
+   2:16  error  'require' is not defined  no-undef
+   5:1   error  'exports' is not defined  no-undef
+  35:23  error  'process' is not defined  no-undef
+  36:22  error  'process' is not defined  no-undef
+  52:1   error  'exports' is not defined  no-undef
+  54:26  error  'process' is not defined  no-undef
+
+C:\githubRepos\nexusshop\server\controllers\productController.js
+    1:16  error  'require' is not defined           no-undef
+    2:26  error  'require' is not defined           no-undef
+    5:3   error  'process' is not defined           no-undef
+    6:3   error  'process' is not defined           no-undef
+    9:1   error  'exports' is not defined           no-undef
+   26:1   error  'exports' is not defined           no-undef
+   62:1   error  'exports' is not defined           no-undef
+   74:12  error  'error' is defined but never used  no-unused-vars
+   79:1   error  'exports' is not defined           no-undef
+   99:12  error  'error' is defined but never used  no-unused-vars
+  105:1   error  'exports' is not defined           no-undef
+
+C:\githubRepos\nexusshop\server\controllers\submitAppController.js
+   1:16  error  'require' is not defined  no-undef
+  52:1   error  'module' is not defined   no-undef
+
+C:\githubRepos\nexusshop\server\controllers\userController.js
+   1:16  error  'require' is not defined  no-undef
+  56:1   error  'module' is not defined   no-undef
+
+C:\githubRepos\nexusshop\server\index.js
+   2:17  error  'require' is not defined  no-undef
+   3:14  error  'require' is not defined  no-undef
+   4:16  error  'require' is not defined  no-undef
+   9:14  error  'process' is not defined  no-undef
+  21:11  error  'process' is not defined  no-undef
+  25:26  error  'require' is not defined  no-undef
+  26:26  error  'require' is not defined  no-undef
+  27:21  error  'require' is not defined  no-undef
+  28:22  error  'require' is not defined  no-undef
+  29:22  error  'require' is not defined  no-undef
+  30:23  error  'require' is not defined  no-undef
+
+C:\githubRepos\nexusshop\server\lib\prisma.js
+   6:1   error  'require' is not defined  no-undef
+   7:26  error  'require' is not defined  no-undef
+   8:22  error  'require' is not defined  no-undef
+   9:18  error  'require' is not defined  no-undef
+  12:21  error  'process' is not defined  no-undef
+  20:1   error  'module' is not defined   no-undef
+
+C:\githubRepos\nexusshop\server\prisma\seed.js
+   1:1   error  'require' is not defined                                                                no-undef
+   1:34  error  'require' is not defined                                                                no-undef
+   1:58  error  '__dirname' is not defined                                                              no-undef
+   2:16  error  'require' is not defined                                                                no-undef
+  29:9   error  'admin1' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  40:9   error  'admin2' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  80:5   error  'process' is not defined                                                                no-undef
+
+C:\githubRepos\nexusshop\server\routes\appRoutes.js
+  1:17  error  'require' is not defined  no-undef
+  3:23  error  'require' is not defined  no-undef
+  7:1   error  'module' is not defined   no-undef
+
+C:\githubRepos\nexusshop\server\routes\authRoutes.js
+  1:17  error  'require' is not defined  no-undef
+  3:42  error  'require' is not defined  no-undef
+  9:1   error  'module' is not defined   no-undef
+
+C:\githubRepos\nexusshop\server\routes\d17PaymentRoutes.js
+   1:17  error  'require' is not defined  no-undef
+   8:5   error  'require' is not defined  no-undef
+  15:1   error  'module' is not defined   no-undef
+
+C:\githubRepos\nexusshop\server\routes\paymentRoutes.js
+   1:17  error  'require' is not defined  no-undef
+   3:27  error  'require' is not defined  no-undef
+  11:1   error  'module' is not defined   no-undef
+
+C:\githubRepos\nexusshop\server\routes\productRoutes.js
+   1:17  error  'require' is not defined  no-undef
+   3:27  error  'require' is not defined  no-undef
+  21:1   error  'module' is not defined   no-undef
+
+C:\githubRepos\nexusshop\server\routes\userRoutes.js
+  1:17  error  'require' is not defined  no-undef
+  3:45  error  'require' is not defined  no-undef
+  9:1   error  'module' is not defined   no-undef
+
+C:\githubRepos\nexusshop\src\components\PageTransition.jsx
+  1:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\githubRepos\nexusshop\src\components\ProductCard.jsx
+  4:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\githubRepos\nexusshop\src\context\AuthContext.jsx
+   3:14  error  Fast refresh only works when a file only exports components. Move your React context(s) to a separate file                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              react-refresh/only-export-components
+  14:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  12 |     if (storedUser) {
+  13 |       const parsedUser = JSON.parse(storedUser);
+> 14 |       setUser(parsedUser);
+     |       ^^^^^^^ Avoid calling setState() directly within an effect
+  15 |       refreshUser(parsedUser.id);
+  16 |     }
+  17 |                                          react-hooks/set-state-in-effect
+  15:7   error  Error: Cannot access variable before it is declared
+
+`refreshUser` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  13 |       const parsedUser = JSON.parse(storedUser);
+  14 |       setUser(parsedUser);
+> 15 |       refreshUser(parsedUser.id);
+     |       ^^^^^^^^^^^ `refreshUser` accessed before it is declared
+  16 |     }
+  17 |
+  18 |     const storedTheme = localStorage.getItem('theme') || 'dark';
+
+  38 |   };
+  39 |
+> 40 |   const refreshUser = async (userId) => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 41 |     setIsFetchingUser(true);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 42 |     try {
+     ÔÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 53 |     }
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 54 |   };
+     | ^^^^^ `refreshUser` is declared here
+  55 |
+  56 |   return (
+  57 |     <AuthContext.Provider value={{ user, login, logout, setUser, theme, toggleTheme, refreshUser, isFetchingUser }}>  react-hooks/immutability
+
+C:\githubRepos\nexusshop\src\pages\AdminPage.jsx
+  7:5  error  Error: Cannot access variable before it is declared
+
+`fetchPayments` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+   5 |
+   6 |   useEffect(() => {
+>  7 |     fetchPayments();
+     |     ^^^^^^^^^^^^^ `fetchPayments` accessed before it is declared
+   8 |   }, []);
+   9 |
+  10 |   const fetchPayments = async () => {
+
+   8 |   }, []);
+   9 |
+> 10 |   const fetchPayments = async () => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 11 |     try {
+     | ^^^^^^^^^
+> 12 |       const res = await fetch('http://localhost:5000/api/d17/admin/payments');
+     ÔÇª
+     | ^^^^^^^^^
+> 23 |     }
+     | ^^^^^^^^^
+> 24 |   };
+     | ^^^^^ `fetchPayments` is declared here
+  25 |
+  26 |   const handleApprove = async (transactionId) => {
+  27 |     try {  react-hooks/immutability
+
+C:\githubRepos\nexusshop\src\pages\HomePage.jsx
+  3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\githubRepos\nexusshop\src\pages\ProductPage.jsx
+  3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\githubRepos\nexusshop\src\pages\SearchPage.jsx
+  14:5  error    Error: Cannot access variable before it is declared
+
+`fetchResults` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  12 |
+  13 |   useEffect(() => {
+> 14 |     fetchResults();
+     |     ^^^^^^^^^^^^ `fetchResults` accessed before it is declared
+  15 |   }, [q, category, sort]);
+  16 |
+  17 |   const fetchResults = async () => {
+
+  15 |   }, [q, category, sort]);
+  16 |
+> 17 |   const fetchResults = async () => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 18 |     setIsLoading(true);
+     | ^^^^^^^^^^^^^^^^^^^^^^^
+> 19 |     try {
+     ÔÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^
+> 28 |     }
+     | ^^^^^^^^^^^^^^^^^^^^^^^
+> 29 |   };
+     | ^^^^^ `fetchResults` is declared here
+  30 |
+  31 |   const updateParam = (key, value) => {
+  32 |     if (value) {  react-hooks/immutability
+  15:6  warning  React Hook useEffect has a missing dependency: 'fetchResults'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react-hooks/exhaustive-deps
+
+C:\githubRepos\nexusshop\src\pages\SettingsPage.jsx
+  30:9  error  'login' is not defined  no-undef
+
+Ô£û 87 problems (86 errors, 1 warning)
+

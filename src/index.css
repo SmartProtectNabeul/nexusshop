@@ -23,8 +23,8 @@
 
   /* Text */
   --text-primary: hsl(0, 0%, 95%);
-  --text-secondary: hsl(220, 10%, 55%);
-  --text-muted: hsl(220, 10%, 38%);
+  --text-secondary: hsl(220, 20%, 80%);
+  --text-muted: hsl(220, 16%, 68%);
 
   /* Semantic */
   --star-color: hsl(45, 100%, 55%);
@@ -100,6 +100,20 @@ html {
   /* Smoother scroll feel */
   overflow-y: scroll;
   scrollbar-gutter: stable;
+}
+
+body.light-theme {
+  --surface-base: hsl(0, 0%, 98%);
+  --surface-dark: hsl(0, 0%, 95%);
+  --surface-card: hsl(0, 0%, 100%);
+  --surface-elevated: hsl(0, 0%, 100%);
+  --surface-hover: hsl(0, 0%, 96%);
+  --text-primary: hsl(225, 25%, 10%);
+  --text-secondary: hsl(220, 12%, 30%);
+  --text-muted: hsl(220, 10%, 42%);
+  --surface-glass: hsla(0, 0%, 100%, 0.8);
+  --surface-glass-border: hsla(0, 0%, 0%, 0.1);
+  color-scheme: light;
 }
 
 body {

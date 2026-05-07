@@ -14,6 +14,12 @@ enum Role {
   ADMIN
 }
 
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum ProductStatus {
   PENDING
   LIVE
@@ -23,12 +29,17 @@ enum ProductStatus {
 model User {
   id            String        @id @default(uuid())
   email         String        @unique
+  password      String?
   role          Role          @default(CONSUMER)
   walletBalance Float         @default(0.0)
+  credits       Float         @default(0.0)
   
   // Relations
   products      Product[]     @relation("DeveloperProducts")
   purchases     Transaction[] @relation("BuyerTransactions")
+  payments      Payment[]
+  licenseTokens LicenseToken[]
+  reviews       Review[]
   createdAt     DateTime      @default(now())
 }
 
@@ -37,8 +48,14 @@ model Product {
   title         String
   description   String
   price         Float         // Stored in TND
+  rating        Float         @default(0.0)
   category      String
   status        ProductStatus @default(PENDING)
+  version       String?
+  requirements  String?
+  storageSize   String?
+  appSizeBytes  Int?
+  apiKey        String?       @unique // For Nexus Link SDK integration
   
   // Media & Files
   thumbnailUrl  String
@@ -50,7 +67,18 @@ model Product {
   developerId   String
   developer     User          @relation("DeveloperProducts", fields: [developerId], references: [id])
   transactions  Transaction[]
+  reviews       Review[]
   createdAt     DateTime      @default(now())
+}
+
+model LicenseToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  name      String?  // Optional name for the token (e.g. "Main PC")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  lastUsed  DateTime?
 }
 
 model Transaction {
@@ -65,5 +93,36 @@ model Transaction {
   buyer         User     @relation("BuyerTransactions", fields: [buyerId], references: [id])
   productId     String
   product       Product  @relation(fields: [productId], references: [id])
+  review        Review?
   createdAt     DateTime @default(now())
+
+  @@unique([buyerId, productId])
+}
+
+model Review {
+  id            String      @id @default(uuid())
+  rating        Int
+  comment       String?
+  buyerId       String
+  buyer         User        @relation(fields: [buyerId], references: [id])
+  productId     String
+  product       Product     @relation(fields: [productId], references: [id])
+  transactionId String      @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([buyerId, productId])
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  amount        Float
+  transactionId String        @unique
+  senderPhone   String
+  status        PaymentStatus @default(PENDING)
+  
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  createdAt DateTime      @default(now())
 }

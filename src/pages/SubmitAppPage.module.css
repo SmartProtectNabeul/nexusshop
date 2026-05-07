@@ -1,0 +1,238 @@
+.page {
+  width: min(1280px, calc(100vw - 42px));
+  margin: 0 auto;
+  padding: 46px 0 54px;
+}
+
+.header {
+  margin-bottom: 22px;
+}
+
+.title {
+  font-size: clamp(1.9rem, 2.8vw, 2.5rem);
+  margin-bottom: 6px;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  max-width: 900px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.formCard,
+.infoCard {
+  background: var(--surface-glass);
+  border: 1px solid var(--surface-glass-border);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: var(--shadow-md);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.field label {
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.input,
+.select,
+.textarea,
+.fileInput {
+  border-radius: 10px;
+  border: 1px solid var(--surface-glass-border);
+  background: var(--surface-dark);
+  color: var(--text-primary);
+  padding: 12px 14px;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
+.dropZone {
+  border: 1.5px dashed rgba(125, 211, 252, 0.4);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(2, 132, 199, 0.08), rgba(2, 132, 199, 0.04));
+  min-height: 98px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.dropZone:hover {
+  border-color: rgba(103, 232, 249, 0.75);
+  background: linear-gradient(180deg, rgba(2, 132, 199, 0.12), rgba(2, 132, 199, 0.06));
+}
+
+.dropZoneActive {
+  border-color: #67e8f9;
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.18), rgba(34, 211, 238, 0.08));
+  transform: translateY(-1px);
+}
+
+.dropTitle {
+  font-size: 0.89rem;
+  font-weight: 600;
+  color: #dbeafe;
+}
+
+.dropBrowse {
+  color: #67e8f9;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dropSub {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.textarea {
+  min-height: 138px;
+  resize: vertical;
+}
+
+.fileHint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.fileList {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fileTag {
+  font-size: 0.74rem;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(2, 132, 199, 0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+}
+
+.agreement {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.cta {
+  min-height: 48px;
+  border-radius: 10px;
+  padding: 0 16px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #eff6ff;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+}
+
+.cta:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.infoTitle {
+  font-size: 1.02rem;
+  margin-bottom: 10px;
+}
+
+.checkList {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.checkItem {
+  border-radius: 10px;
+  background: var(--surface-dark);
+  border: 1px solid var(--surface-glass-border);
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.badge {
+  font-size: 0.74rem;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-weight: 700;
+  border: 1px solid var(--surface-glass-border);
+  color: var(--text-secondary);
+}
+
+.trustBox {
+  margin-top: 16px;
+  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(6, 78, 59, 0.2);
+  color: #a7f3d0;
+  font-size: 0.84rem;
+}
+
+.eligibilityBox {
+  margin-top: 8px;
+  color: #d1fae5;
+  display: grid;
+  gap: 4px;
+}
+
+@media (min-width: 1040px) {
+  .layout {
+    grid-template-columns: 1.1fr 0.9fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .page {
+    width: min(1280px, calc(100vw - 24px));
+    padding-top: 30px;
+  }
+
+  .split {
+    grid-template-columns: 1fr;
+  }
+}

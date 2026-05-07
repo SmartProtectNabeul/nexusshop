@@ -5,8 +5,10 @@ async function main() {
   console.log('Seeding database...');
 
   // Create a dummy developer
-  const dev = await prisma.user.create({
-    data: {
+  const dev = await prisma.user.upsert({
+    where: { email: 'dev@nexusshop.com' },
+    update: {},
+    create: {
       email: 'dev@nexusshop.com',
       role: 'DEVELOPER',
       walletBalance: 0.0,
@@ -14,10 +16,34 @@ async function main() {
   });
 
   // Create a dummy consumer
-  const consumer = await prisma.user.create({
-    data: {
+  const consumer = await prisma.user.upsert({
+    where: { email: 'user@nexusshop.com' },
+    update: {},
+    create: {
       email: 'user@nexusshop.com',
       role: 'CONSUMER',
+      walletBalance: 0.0,
+    }
+  });
+
+  const admin1 = await prisma.user.upsert({
+    where: { email: 'rayen@bahroun.com' },
+    update: { role: 'ADMIN' },
+    create: {
+      email: 'rayen@bahroun.com',
+      password: 'admin123',
+      role: 'ADMIN',
+      walletBalance: 0.0,
+    }
+  });
+
+  const admin2 = await prisma.user.upsert({
+    where: { email: 'ahmedmidonajjar@gmail.com' },
+    update: { role: 'ADMIN' },
+    create: {
+      email: 'ahmedmidonajjar@gmail.com',
+      password: 'admin123',
+      role: 'ADMIN',
       walletBalance: 0.0,
     }
   });

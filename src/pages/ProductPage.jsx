@@ -1,6 +1,7 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useContext, useEffect, useState, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,23 +15,228 @@ import {
 } from 'lucide-react';
 import PageTransition from '../components/PageTransition';
 import StarRating from '../components/StarRating';
-import { products, formatPrice, formatDownloads } from '../data/products';
+import { AuthContext } from '../context/AuthContext';
 import styles from './ProductPage.module.css';
 
+const formatPrice = (price) => {
+  const normalizedPrice = Number(price || 0);
+  if (normalizedPrice === 0) {
+    return null;
+  }
+  return `${normalizedPrice.toLocaleString()} TND`;
+};
+
+const formatDownloads = (count) => {
+  const normalizedCount = Number(count || 0);
+  if (normalizedCount >= 1000000) return `${(normalizedCount / 1000000).toFixed(1)}M`;
+  if (normalizedCount >= 1000) return `${(normalizedCount / 1000).toFixed(1)}K`;
+  return normalizedCount.toString();
+};
+
+const resolveProductImage = (product) => {
+  const thumbnail = product?.thumbnailUrl || product?.thumbnail;
+  if (!thumbnail) {
+    return '/thumbnails/code-editor.png';
+  }
+  if (thumbnail.startsWith('http://') || thumbnail.startsWith('https://') || thumbnail.startsWith('/')) {
+    return thumbnail;
+  }
+  return thumbnail;
+};
+
 export default function ProductPage() {
-  const { slug } = useParams();
+  const { id } = useParams();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useContext(AuthContext);
+  const [product, setProduct] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [purchaseStatus, setPurchaseStatus] = useState(null);
+  const [isCheckingPurchase, setIsCheckingPurchase] = useState(false);
+  const [isBuying, setIsBuying] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [isSavingReview, setIsSavingReview] = useState(false);
+  const [productApiKey, setProductApiKey] = useState('');
+  const [isLoadingApiKey, setIsLoadingApiKey] = useState(false);
 
-  const product = products.find((p) => p.slug === slug);
+  const fetchProductApiKey = useCallback(async () => {
+    if (!user || !id) return;
+    setIsLoadingApiKey(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/sdk/product/${id}/api-key`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProductApiKey(data.apiKey || '');
+      }
+    } catch (err) {
+      console.error('Failed to fetch API key:', err);
+    } finally {
+      setIsLoadingApiKey(false);
+    }
+  }, [id, user]);
+
+  const handleRegenerateKey = async () => {
+    if (!window.confirm('Regenerating your API key will break existing installations using the old key. Proceed?')) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/sdk/product/${id}/api-key`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProductApiKey(data.apiKey);
+        toast.success('New API key generated');
+      }
+    } catch (err) {
+      toast.error('Failed to regenerate API key');
+    }
+  };
+
+  const parseJsonSafely = async (res) => {
+    const text = await res.text();
+    if (!text) return {};
+    try {
+      return JSON.parse(text);
+    } catch (_error) {
+      return { error: text };
+    }
+  };
+
+  const fetchProduct = async (hardRefresh = false) => {
+    setIsLoading(!hardRefresh);
+    setIsRefreshing(hardRefresh);
+    setLoadError('');
+    try {
+      const url = `http://localhost:5000/api/products/${id}${hardRefresh ? '?refresh=true' : ''}`;
+      const res = await fetch(url);
+      const data = await parseJsonSafely(res);
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to fetch product');
+      }
+      setProduct(data);
+    } catch (error) {
+      setLoadError(error.message);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const fetchPurchaseStatus = async (hardRefresh = false) => {
+    if (!user || !id) {
+      setPurchaseStatus(null);
+      return;
+    }
+    setIsCheckingPurchase(true);
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/payments/purchase-status/${id}${hardRefresh ? '?refresh=true' : ''}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+      const data = await parseJsonSafely(res);
+      if (res.ok) {
+        setPurchaseStatus(data);
+      }
+    } catch (_error) {
+      setPurchaseStatus(null);
+    } finally {
+      setIsCheckingPurchase(false);
+    }
+  };
+
+  const fetchReviews = async (hardRefresh = false) => {
+    setIsLoadingReviews(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/products/${id}/reviews${hardRefresh ? '?refresh=true' : ''}`);
+      const data = await parseJsonSafely(res);
+      if (res.ok && Array.isArray(data)) {
+        setReviews(data);
+      } else {
+        setReviews([]);
+      }
+    } catch (_error) {
+      setReviews([]);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  };
+
+  useEffect(() => {
+    let isCancelled = false;
+    (async () => {
+      await fetchProduct(false);
+      if (!isCancelled) {
+        await fetchPurchaseStatus(false);
+        await fetchReviews(false);
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, user?.id]);
+
+  useEffect(() => {
+    if (purchaseStatus?.isOwner) {
+      fetchProductApiKey();
+    }
+  }, [purchaseStatus?.isOwner]);
+
+  const myExistingReview = user ? reviews.find((item) => item.buyerId === user.id) : null;
+
+  useEffect(() => {
+    if (myExistingReview) {
+      setReviewRating(myExistingReview.rating || 5);
+      setReviewComment(myExistingReview.comment || '');
+    }
+  }, [myExistingReview]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('purchase') === 'success') {
+      toast.success('Payment completed. Verifying purchase access...');
+      fetchPurchaseStatus(true);
+      fetchProduct(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
   const isRTL = i18n.language === 'ar';
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
+
+  if (isLoading) {
+    return (
+      <PageTransition>
+        <div className={styles.notFound}>
+          <h2>Loading product...</h2>
+        </div>
+      </PageTransition>
+    );
+  }
 
   if (!product) {
     return (
       <PageTransition>
         <div className={styles.notFound}>
-          <h2>Product not found</h2>
+          <h2>{loadError || 'Product not found'}</h2>
           <button onClick={() => navigate('/')} className={styles.backBtn}>
             <BackArrow size={18} />
             {t('product.backToStore')}
@@ -41,7 +247,103 @@ export default function ProductPage() {
   }
 
   const priceText = formatPrice(product.price);
-  const isFree = product.price === 0;
+  const isFree = Number(product.price || 0) === 0;
+  const rating = Number(product.rating || 0);
+  const totalDownloads = Number(product?._count?.transactions || 0);
+  const developerName = product.developer?.email || 'Developer';
+  const productImage = resolveProductImage(product);
+  const version = product.version || '1.0.0';
+  const lastUpdated = product.createdAt ? new Date(product.createdAt).toLocaleDateString() : 'N/A';
+  const requirements = product.requirements || 'See product description';
+  const storageSize = product.storageSize || 'N/A';
+  const galleryItems = Array.isArray(product.mediaUrls) ? product.mediaUrls : [];
+  const canDownload = Boolean(purchaseStatus?.canDownload);
+  const isFreeOrOwned = Boolean(purchaseStatus?.isFree || purchaseStatus?.isOwner);
+
+  const handlePrimaryAction = async () => {
+    if (!user) {
+      toast.error('Please login first');
+      navigate('/login');
+      return;
+    }
+
+    if (canDownload) {
+      try {
+        const res = await fetch(`http://localhost:5000/api/products/${id}/download`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        });
+        const data = await parseJsonSafely(res);
+        if (!res.ok) {
+          toast.error(data.error || 'Failed to create download link');
+          return;
+        }
+        window.open(data.downloadUrl, '_blank', 'noopener,noreferrer');
+        toast.success('Download link generated');
+      } catch (_error) {
+        toast.error('Failed to download app');
+      }
+      return;
+    }
+
+    setIsBuying(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/payments/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ productId: id }),
+      });
+      const data = await parseJsonSafely(res);
+      if (!res.ok || !data.url) {
+        toast.error(data.error || 'Failed to start checkout');
+        return;
+      }
+      window.location.assign(data.url);
+    } catch (_error) {
+      toast.error('Failed to start checkout');
+    } finally {
+      setIsBuying(false);
+    }
+  };
+
+  const handleReviewSubmit = async (event) => {
+    event.preventDefault();
+    if (!user) {
+      toast.error('Please login first');
+      navigate('/login');
+      return;
+    }
+    setIsSavingReview(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/products/${id}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          rating: Number(reviewRating),
+          comment: reviewComment.trim(),
+        }),
+      });
+      const data = await parseJsonSafely(res);
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to submit review');
+        return;
+      }
+      toast.success('Review saved');
+      await fetchProduct(true);
+      await fetchReviews(true);
+    } catch (_error) {
+      toast.error('Failed to submit review');
+    } finally {
+      setIsSavingReview(false);
+    }
+  };
 
   return (
     <PageTransition>
@@ -59,6 +361,18 @@ export default function ProductPage() {
             <BackArrow size={18} />
             {t('product.backToStore')}
           </motion.button>
+          <button
+            type="button"
+            className={styles.refreshBtn}
+            onClick={async () => {
+              await fetchProduct(true);
+              await fetchPurchaseStatus(true);
+              await fetchReviews(true);
+            }}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? 'Refreshing...' : 'Hard Refresh'}
+          </button>
 
           {/* Product Header */}
           <div className={styles.header}>
@@ -70,9 +384,12 @@ export default function ProductPage() {
               transition={{ delay: 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             >
               <img
-                src={product.thumbnail}
+                src={productImage}
                 alt={product.title}
                 className={styles.thumbnail}
+                onError={(event) => {
+                  event.currentTarget.src = '/thumbnails/code-editor.png';
+                }}
               />
             </motion.div>
 
@@ -86,14 +403,14 @@ export default function ProductPage() {
               <h1 className={styles.title}>{product.title}</h1>
               <p className={styles.developer}>
                 <User size={14} />
-                {product.developer}
+                {developerName}
               </p>
 
               <div className={styles.ratingRow}>
-                <StarRating rating={product.rating} size={16} />
+                <StarRating rating={rating} size={16} />
                 <span className={styles.downloadCount}>
                   <Download size={14} />
-                  {formatDownloads(product.totalDownloads)} {t('product.downloads')}
+                  {formatDownloads(totalDownloads)} {t('product.downloads')}
                 </span>
               </div>
 
@@ -109,8 +426,16 @@ export default function ProductPage() {
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   id="product-get-btn"
+                  onClick={handlePrimaryAction}
+                  disabled={isBuying || isCheckingPurchase}
                 >
-                  {isFree ? t('product.get') : t('product.buy')}
+                  {isBuying
+                    ? 'Processing...'
+                    : canDownload
+                      ? 'Download'
+                      : (isFreeOrOwned || isFree)
+                        ? t('product.get')
+                        : t('product.buy')}
                 </motion.button>
               </div>
             </motion.div>
@@ -127,6 +452,91 @@ export default function ProductPage() {
             <p className={styles.description}>{product.description}</p>
           </motion.section>
 
+          {/* Gallery */}
+          {galleryItems.length > 0 && (
+            <motion.section
+              className={styles.section}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45, duration: 0.5 }}
+            >
+              <h2 className={styles.sectionTitle}>Gallery</h2>
+              <div className={styles.galleryGrid}>
+                {galleryItems.map((item) => (
+                  <div key={item} className={styles.galleryCard}>
+                    <img
+                      src={item}
+                      alt={`${product.title} gallery`}
+                      className={styles.galleryImage}
+                      loading="lazy"
+                      onError={(event) => {
+                        event.currentTarget.src = '/thumbnails/code-editor.png';
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </motion.section>
+          )}
+
+          {/* Reviews */}
+          <motion.section
+            className={styles.section}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.48, duration: 0.5 }}
+          >
+            <h2 className={styles.sectionTitle}>Reviews</h2>
+            {purchaseStatus?.purchased ? (
+              <form className={styles.reviewForm} onSubmit={handleReviewSubmit}>
+                <label>
+                  Rating
+                  <select
+                    value={reviewRating}
+                    onChange={(e) => setReviewRating(Number(e.target.value))}
+                    className={styles.reviewInput}
+                  >
+                    {[5, 4, 3, 2, 1].map((value) => (
+                      <option key={value} value={value}>{value} stars</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Comment
+                  <textarea
+                    className={styles.reviewTextarea}
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="Share what you liked or what can be improved."
+                  />
+                </label>
+                <button type="submit" className={styles.reviewSubmit} disabled={isSavingReview}>
+                  {isSavingReview ? 'Saving...' : (myExistingReview ? 'Update Review' : 'Submit Review')}
+                </button>
+              </form>
+            ) : (
+              <p className={styles.reviewHint}>Only users who purchased this app can submit a review.</p>
+            )}
+
+            {isLoadingReviews ? (
+              <p className={styles.reviewHint}>Loading reviews...</p>
+            ) : reviews.length === 0 ? (
+              <p className={styles.reviewHint}>No reviews yet.</p>
+            ) : (
+              <div className={styles.reviewList}>
+                {reviews.map((review) => (
+                  <article key={review.id} className={styles.reviewCard}>
+                    <div className={styles.reviewTop}>
+                      <strong>{review.buyer?.email || 'User'}</strong>
+                      <span>{review.rating}/5</span>
+                    </div>
+                    <p>{review.comment || 'No comment provided.'}</p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </motion.section>
+
           {/* System Info */}
           <motion.section
             className={styles.section}
@@ -140,46 +550,127 @@ export default function ProductPage() {
                 <span className={styles.infoIcon}><Tag size={16} /></span>
                 <div>
                   <span className={styles.infoLabel}>{t('product.category')}</span>
-                  <span className={styles.infoValue}>{t(`categories.${product.category}`)}</span>
+                  <span className={styles.infoValue}>{t(`categories.${product.category}`, { defaultValue: product.category })}</span>
                 </div>
               </div>
               <div className={styles.infoItem}>
                 <span className={styles.infoIcon}><HardDrive size={16} /></span>
                 <div>
                   <span className={styles.infoLabel}>{t('product.size')}</span>
-                  <span className={styles.infoValue}>{product.storageSize}</span>
+                  <span className={styles.infoValue}>{storageSize}</span>
                 </div>
               </div>
               <div className={styles.infoItem}>
                 <span className={styles.infoIcon}><Star size={16} /></span>
                 <div>
                   <span className={styles.infoLabel}>{t('product.version')}</span>
-                  <span className={styles.infoValue}>v{product.version}</span>
+                  <span className={styles.infoValue}>v{version}</span>
                 </div>
               </div>
               <div className={styles.infoItem}>
                 <span className={styles.infoIcon}><Calendar size={16} /></span>
                 <div>
                   <span className={styles.infoLabel}>{t('product.lastUpdated')}</span>
-                  <span className={styles.infoValue}>{product.lastUpdated}</span>
+                  <span className={styles.infoValue}>{lastUpdated}</span>
                 </div>
               </div>
               <div className={styles.infoItem}>
                 <span className={styles.infoIcon}><Monitor size={16} /></span>
                 <div>
                   <span className={styles.infoLabel}>{t('product.requirements')}</span>
-                  <span className={styles.infoValue}>{product.requirements}</span>
+                  <span className={styles.infoValue}>{requirements}</span>
                 </div>
               </div>
               <div className={styles.infoItem}>
                 <span className={styles.infoIcon}><Download size={16} /></span>
                 <div>
                   <span className={styles.infoLabel}>{t('product.downloads')}</span>
-                  <span className={styles.infoValue}>{product.totalDownloads.toLocaleString()}</span>
+                  <span className={styles.infoValue}>{totalDownloads.toLocaleString()}</span>
                 </div>
               </div>
             </div>
           </motion.section>
+
+          {/* Developer SDK Section */}
+          {purchaseStatus?.isOwner && (
+            <motion.section
+              className={styles.section}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.52, duration: 0.5 }}
+            >
+              <h2 className={styles.sectionTitle}>Developer SDK Integration</h2>
+              <p className={styles.description}>
+                Use the Nexus Link SDK to protect your app. Verify user licenses by calling our API from within your application.
+              </p>
+
+              <div className={styles.apiKeyBox} style={{ 
+                background: 'rgba(255,255,255,0.03)', 
+                padding: '20px', 
+                borderRadius: '12px', 
+                border: '1px solid rgba(255,255,255,0.05)',
+                marginTop: '15px'
+              }}>
+                <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>Product API Key</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <code style={{ 
+                    background: '#000', 
+                    padding: '10px 15px', 
+                    borderRadius: '6px', 
+                    flexGrow: 1, 
+                    fontSize: '14px',
+                    fontFamily: 'monospace'
+                  }}>
+                    {isLoadingApiKey ? 'Loading...' : (productApiKey || 'No key generated yet')}
+                  </code>
+                  <button 
+                    className={styles.getButton} 
+                    onClick={() => {
+                      navigator.clipboard.writeText(productApiKey);
+                      toast.success('API Key copied');
+                    }}
+                    style={{ padding: '0 15px' }}
+                  >
+                    Copy
+                  </button>
+                  <button 
+                    className={styles.refreshBtn} 
+                    onClick={handleRegenerateKey}
+                    style={{ margin: 0 }}
+                  >
+                    Regenerate
+                  </button>
+                </div>
+                <p className={styles.infoLabel} style={{ marginTop: '10px', fontSize: '12px', color: '#ef4444' }}>
+                  Keep this key secret. Never share it or include it in client-side code that can be easily decompiled.
+                </p>
+              </div>
+
+              <div style={{ marginTop: '20px' }}>
+                <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>Integration Example (Node.js)</h3>
+                <pre style={{ 
+                  background: '#1e293b', 
+                  padding: '15px', 
+                  borderRadius: '8px', 
+                  fontSize: '13px', 
+                  overflowX: 'auto',
+                  color: '#e2e8f0'
+                }}>
+{`const verifyLicense = async (userToken) => {
+  const response = await fetch('http://localhost:5000/api/sdk/v1/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      productApiKey: '${productApiKey || 'YOUR_API_KEY'}',
+      userToken: userToken // Collected from user
+    })
+  });
+  return await response.json();
+};`}
+                </pre>
+              </div>
+            </motion.section>
+          )}
         </div>
       </div>
     </PageTransition>
